@@ -48,14 +48,12 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-thymeleaf")
     implementation("org.webjars:webjars-locator-lite")
     implementation(libs.swagger.ui)
-    implementation(libs.waltid.mdoc.credentials) {
+    implementation(libs.kotlinx.datetime)
+    implementation(libs.waltid.mdoc.credentials2) {
         because("To verify CBOR credentials")
     }
-    implementation(libs.kotlinx.datetime) {
-        because("required by walt.id")
-    }
-    implementation(libs.cose.java) {
-        because("required by walt.id")
+    implementation(libs.waltid.crypto) {
+        because("To verify CBOR credentials")
     }
     implementation(libs.sd.jwt)
     implementation(libs.ktor.client.apache) {

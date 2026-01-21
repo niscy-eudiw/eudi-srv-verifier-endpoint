@@ -77,7 +77,6 @@ sealed interface WalletResponseValidationError {
 
     sealed interface HAIPValidationError : WalletResponseValidationError {
         data object DeviceResponseContainsMoreThanOneMDoc : HAIPValidationError
-        data class UnsupportedMsoRevocationMechanism(val used: Set<String>, val allowed: Set<String>) : HAIPValidationError
         data object SdJwtVcMustUseTokenStatusList : HAIPValidationError
     }
 }
