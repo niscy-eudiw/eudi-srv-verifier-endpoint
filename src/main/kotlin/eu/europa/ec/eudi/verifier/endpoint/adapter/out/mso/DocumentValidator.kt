@@ -77,6 +77,10 @@ class DocumentValidator(
     private val statusListTokenValidator: StatusListTokenValidator?,
     private val isChainTrustedForAttestation: IsChainTrustedForAttestation<NonEmptyList<X509Certificate>, TrustAnchor>,
 ) {
+    init {
+        registerCustomSerializers()
+    }
+
     suspend fun ensureValid(
         document: Document,
         transactionId: TransactionId? = null,

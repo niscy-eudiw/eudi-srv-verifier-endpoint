@@ -58,6 +58,10 @@ sealed interface DeviceResponseError {
 class DeviceResponseValidator(
     private val documentValidator: DocumentValidator,
 ) {
+    init {
+        registerCustomSerializers()
+    }
+
     /**
      * Validates the given verifier presentation
      * It could a vp_token or an element of an array vp_token
