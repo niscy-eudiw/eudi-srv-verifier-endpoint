@@ -13,9 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package eu.europa.ec.eudi.verifier.endpoint.adapter.out.mso
+package eu.europa.ec.eudi.verifier.endpoint.adapter.out.mso.credentials
 
-import eu.europa.ec.eudi.verifier.endpoint.adapter.out.mso.PID.Companion.registerSerializationTypes
 import id.walt.mdoc.credsdata.MdocCompanion
 import id.walt.mdoc.objects.MdocsCborSerializer
 import kotlinx.datetime.LocalDate
@@ -29,12 +28,12 @@ import kotlinx.serialization.cbor.ByteString
 /**
  * Data class for PID according to PID Rulebook v1.5.
  *
- * Companion object implements [MdocCompanion] and registers the necessary serializers, so that MSO MDoc encoded PIDs can be successfully
+ * Companion object implements [id.walt.mdoc.credsdata.MdocCompanion] and registers the necessary serializers, so that MSO MDoc encoded PIDs can be successfully
  * parsed and validated.
  *
  * **Before parsing/validating a PID, make sure to call [registerSerializationTypes].**
- * @see [DeviceResponseValidator]
- * @see [DocumentValidator]
+ * @see [eu.europa.ec.eudi.verifier.endpoint.adapter.out.mso.DeviceResponseValidator]
+ * @see [eu.europa.ec.eudi.verifier.endpoint.adapter.out.mso.DocumentValidator]
  */
 @Serializable
 @SerialName("PID-v1.5")
@@ -71,11 +70,11 @@ data class PID(
         override fun registerSerializationTypes() {
             MdocsCborSerializer.register(
                 mapOf(
-                    "birth_date" to LocalDate.serializer(),
+                    "birth_date" to LocalDate.Companion.serializer(),
                     "place_of_birth" to BirthPlace.serializer(),
-                    "nationality" to ListSerializer(String.serializer()),
-                    "expiry_date" to LocalDate.serializer(),
-                    "issuance_date" to LocalDate.serializer(),
+                    "nationality" to ListSerializer(String.Companion.serializer()),
+                    "expiry_date" to LocalDate.Companion.serializer(),
+                    "issuance_date" to LocalDate.Companion.serializer(),
                 ),
                 "eu.europa.ec.eudi.pid.1",
             )
