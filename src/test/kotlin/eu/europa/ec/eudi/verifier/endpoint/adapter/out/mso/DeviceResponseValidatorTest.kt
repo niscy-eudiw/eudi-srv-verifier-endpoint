@@ -18,22 +18,26 @@ package eu.europa.ec.eudi.verifier.endpoint.adapter.out.mso
 import arrow.core.NonEmptyList
 import arrow.core.nonEmptyListOf
 import com.nimbusds.jose.util.X509CertUtils
-import eu.europa.ec.eudi.etsi1196x2.consultation.AttestationClassifications
-import eu.europa.ec.eudi.etsi1196x2.consultation.AttestationIdentifierPredicate
 import eu.europa.ec.eudi.etsi1196x2.consultation.IsChainTrustedForAttestation
 import eu.europa.ec.eudi.etsi1196x2.consultation.IsChainTrustedForContextF
+import eu.europa.ec.eudi.etsi1196x2.consultation.VerificationContext
 import eu.europa.ec.eudi.verifier.endpoint.adapter.out.consultation.Ignored
 import eu.europa.ec.eudi.verifier.endpoint.adapter.out.consultation.usingTrustAnchors
+import eu.europa.ec.eudi.verifier.endpoint.adapter.out.json.jsonSupport
+import eu.europa.ec.eudi.verifier.endpoint.domain.AttestationClassifications
 import eu.europa.ec.eudi.verifier.endpoint.domain.Clock
 import eu.europa.ec.eudi.verifier.endpoint.domain.toJavaDate
+import eu.europa.ec.eudi.verifier.endpoint.toConsultationAttestationClassifications
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.toInstant
+import java.security.cert.TrustAnchor
 import java.security.cert.X509Certificate
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
+import eu.europa.ec.eudi.etsi1196x2.consultation.AttestationClassifications as ConsultationAttestationClassifications
 
 private object Data {
 
@@ -43,25 +47,29 @@ private object Data {
      * The first and the second are valid
      * The 3d has expired validity info
      */
-    val ThreeDocumentVP = Data::class.java.getResource("/ThreeDocumentDeviceResponse.txt")!!.readText()
+    val ThreeDocumentVP = Data::class.java.getResource("/deviceresponsevalidator/ThreeDocumentDeviceResponse.txt")!!.readText()
 
     /**
      * An mDL
      */
-    val MdlVP = Data::class.java.getResource("/mDL-deviceresponse.txt")!!.readText()
+    val MdlVP = Data::class.java.getResource("/deviceresponsevalidator/mDL-deviceresponse.txt")!!.readText()
 
     // Trust anchors for ThreeDocumentVP and MdlVP
     val firstIssuer: NonEmptyList<X509Certificate> by lazy {
         nonEmptyListOf(
-            X509CertUtils.parse(Data::class.java.getResource("/pid-issuer.local.pem")!!.readText()),
+            X509CertUtils.parse(Data::class.java.getResource("/deviceresponsevalidator/pid-issuer.local.pem")!!.readText()),
         )
     }
 
     val secondIssuer: NonEmptyList<X509Certificate> by lazy {
         nonEmptyListOf(
-            X509CertUtils.parse(Data::class.java.getResource("/dev.issuer-backend.eudiw.dev.pem")!!.readText()),
+            X509CertUtils.parse(Data::class.java.getResource("/deviceresponsevalidator/dev.issuer-backend.eudiw.dev.pem")!!.readText()),
         )
     }
+
+    val attestationClassifications = jsonSupport.decodeFromString<AttestationClassifications>(
+        Data::class.java.getResource("/deviceresponsevalidator/attestationclassifications.json")!!.readText(),
+    ).toConsultationAttestationClassifications()
 }
 
 class DeviceResponseValidatorTest {
@@ -77,7 +85,11 @@ class DeviceResponseValidatorTest {
     @Test
     fun `a vp_token where the 3d document has an invalid validity info should fail`() = runTest {
         val invalidDocument = run {
-            val validator = deviceResponseValidator(Data.firstIssuer, clock)
+            val isChainTrusted = IsChainTrustedForContextF.usingTrustAnchors(Data.firstIssuer) {
+                isRevocationEnabled = false
+                date = clock.now().toJavaDate()
+            }
+            val validator = deviceResponseValidator(isChainTrusted, ValidityInfoShouldBe.NotExpired, Data.attestationClassifications, clock)
             val validated = validator.ensureValid(Data.ThreeDocumentVP)
             val invalidDocuments =
                 assertIs<DeviceResponseError.InvalidDocuments>(validated.leftOrNull())
@@ -97,25 +109,12 @@ class DeviceResponseValidatorTest {
     @Test
     fun `a vp_token where the 3d document has an invalid validity info should not fail when skip`() = runTest {
         val validDocuments = run {
-            val docV = DocumentValidator(
-                clock = clock,
-                validityInfoShouldBe = ValidityInfoShouldBe.Ignored,
-                isChainTrustedForAttestation = IsChainTrustedForAttestation(
-                    IsChainTrustedForContextF.usingTrustAnchors(Data.firstIssuer) {
-                        isRevocationEnabled = false
-                        date = clock.now().toJavaDate()
-                    },
-                    AttestationClassifications(
-                        pids = AttestationIdentifierPredicate.mdocMatching("^eu\\.europa\\.ec\\.eudi\\.pid\\.1$".toRegex()),
-                        eaAs = mapOf(
-                            "mDL" to AttestationIdentifierPredicate.mdocMatching("^org\\.iso\\.18013\\.5\\.1\\.mDL$".toRegex()),
-                        ),
-                    ),
-                ),
-                statusListTokenValidator = null,
-            )
-            val vpValidator = DeviceResponseValidator(docV)
-            val validated = vpValidator.ensureValid(Data.ThreeDocumentVP)
+            val isChainTrusted = IsChainTrustedForContextF.usingTrustAnchors(Data.firstIssuer) {
+                isRevocationEnabled = false
+                date = clock.now().toJavaDate()
+            }
+            val validator = deviceResponseValidator(isChainTrusted, ValidityInfoShouldBe.Ignored, Data.attestationClassifications, clock)
+            val validated = validator.ensureValid(Data.ThreeDocumentVP)
             assertNotNull(validated.getOrNull())
         }
 
@@ -125,7 +124,12 @@ class DeviceResponseValidatorTest {
     @Test
     fun `a vp_token having a single document with invalid chain should fail`() = runTest {
         val invalidDocument = run {
-            val validated = deviceResponseValidator(Data.secondIssuer, clock).ensureValid(Data.MdlVP)
+            val isChainTrusted = IsChainTrustedForContextF.usingTrustAnchors(Data.secondIssuer) {
+                isRevocationEnabled = false
+                date = clock.now().toJavaDate()
+            }
+            val validator = deviceResponseValidator(isChainTrusted, ValidityInfoShouldBe.NotExpired, Data.attestationClassifications, clock)
+            val validated = validator.ensureValid(Data.MdlVP)
             val invalidDocuments = assertIs<DeviceResponseError.InvalidDocuments>(validated.leftOrNull()).invalidDocuments
             assertEquals(1, invalidDocuments.size)
             invalidDocuments.head
@@ -141,22 +145,14 @@ class DeviceResponseValidatorTest {
     @Test
     fun `a vp_token having a single document skipping chain validation should be valid`() = runTest {
         val validDocuments = run {
-            val docV =
-                DocumentValidator(
-                    isChainTrustedForAttestation = IsChainTrustedForAttestation(
-                        IsChainTrustedForContextF.Ignored,
-                        AttestationClassifications(
-                            pids = AttestationIdentifierPredicate.mdocMatching("^eu\\.europa\\.ec\\.eudi\\.pid\\.1$".toRegex()),
-                            eaAs = mapOf(
-                                "mDL" to AttestationIdentifierPredicate.mdocMatching("^org\\.iso\\.18013\\.5\\.1\\.mDL$".toRegex()),
-                            ),
-                        ),
-                    ),
-                    clock = clock,
-                    statusListTokenValidator = null,
+            val validator =
+                deviceResponseValidator(
+                    IsChainTrustedForContextF.Ignored,
+                    ValidityInfoShouldBe.NotExpired,
+                    Data.attestationClassifications,
+                    clock,
                 )
-            val vpValidator = DeviceResponseValidator(docV)
-            val validated = vpValidator.ensureValid(Data.MdlVP)
+            val validated = validator.ensureValid(Data.MdlVP)
             assertNotNull(validated.getOrNull())
         }
 
@@ -164,23 +160,17 @@ class DeviceResponseValidatorTest {
     }
 }
 
-private fun deviceResponseValidator(caCerts: NonEmptyList<X509Certificate>, clock: Clock): DeviceResponseValidator {
+private fun deviceResponseValidator(
+    isChainTrusted: IsChainTrustedForContextF<NonEmptyList<X509Certificate>, VerificationContext, TrustAnchor>,
+    validityInfo: ValidityInfoShouldBe,
+    attestationClassifications: ConsultationAttestationClassifications,
+    clock: Clock,
+): DeviceResponseValidator {
     val documentValidator = DocumentValidator(
         clock,
-        ValidityInfoShouldBe.NotExpired,
+        validityInfo,
         IssuerSignedItemsShouldBe.Verified,
-        isChainTrustedForAttestation = IsChainTrustedForAttestation(
-            IsChainTrustedForContextF.usingTrustAnchors(caCerts) {
-                isRevocationEnabled = false
-                date = clock.now().toJavaDate()
-            },
-            AttestationClassifications(
-                pids = AttestationIdentifierPredicate.mdocMatching("^eu\\.europa\\.ec\\.eudi\\.pid\\.1$".toRegex()),
-                eaAs = mapOf(
-                    "mDL" to AttestationIdentifierPredicate.mdocMatching("^org\\.iso\\.18013\\.5\\.1\\.mDL$".toRegex()),
-                ),
-            ),
-        ),
+        isChainTrustedForAttestation = IsChainTrustedForAttestation(isChainTrusted, attestationClassifications),
         statusListTokenValidator = null,
     )
     return DeviceResponseValidator(documentValidator)
