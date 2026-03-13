@@ -15,6 +15,7 @@
  */
 package eu.europa.ec.eudi.verifier.endpoint.adapter.out.mso
 
+import eu.europa.ec.eudi.verifier.endpoint.adapter.out.mso.credentials.PID
 import id.walt.cose.CoseHeaders
 import id.walt.cose.CoseSign1
 import id.walt.cose.coseCompliantCbor
