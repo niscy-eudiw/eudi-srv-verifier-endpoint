@@ -36,13 +36,11 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.toInstant
 import org.junit.jupiter.api.Nested
+import org.slf4j.LoggerFactory
 import java.net.URL
 import java.security.cert.TrustAnchor
 import java.security.cert.X509Certificate
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertIs
-import kotlin.test.assertNotNull
+import kotlin.test.*
 import eu.europa.ec.eudi.etsi1196x2.consultation.AttestationClassifications as ConsultationAttestationClassifications
 
 private object Data {
@@ -75,22 +73,32 @@ private object Data {
     )!!.readText()
 
     // Trust anchors for ThreeDocumentVP and MdlVP
-    val firstIssuer: NonEmptyList<X509Certificate> by lazy {
+    val firstIssuer =
         nonEmptyListOf(
-            X509CertUtils.parse(Data::class.java.getResource("/deviceresponsevalidator/pid-issuer.local.pem")!!.readText()),
+            X509CertUtils.parse(
+                Data::class.java.getResource("/deviceresponsevalidator/pid-issuer.local.pem")!!.readText(),
+            ),
         )
-    }
 
-    val secondIssuer: NonEmptyList<X509Certificate> by lazy {
+    val secondIssuer =
         nonEmptyListOf(
-            X509CertUtils.parse(Data::class.java.getResource("/deviceresponsevalidator/dev.issuer-backend.eudiw.dev.pem")!!.readText()),
+            X509CertUtils.parse(
+                Data::class.java.getResource("/deviceresponsevalidator/dev.issuer-backend.eudiw.dev.pem")!!.readText(),
+            ),
         )
-    }
 
     val attestationClassifications = jsonSupport.decodeFromString<AttestationClassifications>(
         Data::class.java.getResource("/deviceresponsevalidator/attestationclassifications.json")!!.readText(),
     ).toConsultationAttestationClassifications()
+
+    val attestationsToValidate =
+        nonEmptyListOf(
+            "/deviceresponsevalidator/kotlin-issuer-pid.txt",
+            "/deviceresponsevalidator/kotlin-issuer-mdl.txt",
+        )
 }
+
+private val log = LoggerFactory.getLogger(DeviceResponseValidatorTest::class.java)
 
 class DeviceResponseValidatorTest {
 
@@ -177,6 +185,24 @@ class DeviceResponseValidatorTest {
         }
 
         assertEquals(1, validDocuments.size)
+    }
+
+    @Test
+    fun `ensure all mso mdoc attestations issued by kotlin and python issuer can be validated`() = runTest {
+        val validator =
+            deviceResponseValidator(
+                IsChainTrustedForContextF.Ignored,
+                ValidityInfoShouldBe.Ignored,
+                Data.attestationClassifications,
+                Clock.System,
+            )
+        Data.attestationsToValidate.forEach {
+            log.info("Checking $it")
+            val vpToken = Data::class.java.getResource(it)!!.readText()
+            val validated = validator.ensureValid(vpToken)
+            val documents = validated.getOrElse { error -> fail("Failed to validated $it, error: $error") }
+            assertEquals(1, documents.size)
+        }
     }
 
     @Nested
