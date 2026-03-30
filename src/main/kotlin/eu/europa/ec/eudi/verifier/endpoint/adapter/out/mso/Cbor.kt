@@ -15,11 +15,9 @@
  */
 package eu.europa.ec.eudi.verifier.endpoint.adapter.out.mso
 
-import eu.europa.ec.eudi.verifier.endpoint.adapter.out.mso.credentials.PID
 import id.walt.cose.CoseHeaders
 import id.walt.cose.CoseSign1
 import id.walt.cose.coseCompliantCbor
-import id.walt.mdoc.credsdata.CredentialManager
 import kotlinx.serialization.cbor.Cbor
 import kotlinx.serialization.decodeFromByteArray
 import kotlin.io.encoding.Base64
@@ -31,11 +29,3 @@ val base64UrlNoPadding: Base64 by lazy {
 inline fun <reified T> Cbor.decodeFromCborBase64Url(value: String): T = decodeFromByteArray(base64UrlNoPadding.decode(value))
 
 fun CoseSign1.protectedHeaders(): CoseHeaders = coseCompliantCbor.decodeFromByteArray(protected)
-
-private val customSerializersRegistered by lazy {
-    CredentialManager.init()
-    PID.registerSerializationTypes()
-    true
-}
-
-fun registerCustomSerializers() { check(customSerializersRegistered) }
