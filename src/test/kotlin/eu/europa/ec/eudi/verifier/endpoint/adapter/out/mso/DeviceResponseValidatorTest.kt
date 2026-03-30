@@ -79,8 +79,8 @@ private object Data {
      */
     val attestationsToValidate =
         nonEmptyListOf(
-            "/deviceresponsevalidator/kotlin-issuer-pid.txt",
-            "/deviceresponsevalidator/kotlin-issuer-mdl.txt",
+            "/deviceresponsevalidator/kotlin-issuer/pid.txt",
+            "/deviceresponsevalidator/kotlin-issuer/mdl.txt",
         )
 
     val trustedIssuers: NonEmptyList<X509Certificate> by lazy {
