@@ -26,11 +26,7 @@ import eu.europa.ec.eudi.verifier.endpoint.TestContext
 import eu.europa.ec.eudi.verifier.endpoint.adapter.out.consultation.Ignored
 import eu.europa.ec.eudi.verifier.endpoint.adapter.out.consultation.usingTrustAnchors
 import eu.europa.ec.eudi.verifier.endpoint.adapter.out.json.jsonSupport
-import eu.europa.ec.eudi.verifier.endpoint.domain.AttestationClassifications
-import eu.europa.ec.eudi.verifier.endpoint.domain.Clock
-import eu.europa.ec.eudi.verifier.endpoint.domain.Nonce
-import eu.europa.ec.eudi.verifier.endpoint.domain.VerifierId
-import eu.europa.ec.eudi.verifier.endpoint.domain.toJavaDate
+import eu.europa.ec.eudi.verifier.endpoint.domain.*
 import eu.europa.ec.eudi.verifier.endpoint.toConsultationAttestationClassifications
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDateTime
