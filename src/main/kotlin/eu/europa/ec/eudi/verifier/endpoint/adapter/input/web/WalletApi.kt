@@ -248,6 +248,13 @@ class WalletApi(
                     put("description", "DeviceResponse contains more than one MDocs")
                 }
 
+                is WalletResponseValidationError.HAIPValidationError.UnsupportedMsoRevocationMechanism -> {
+                    put("error", "HAIPValidationError.UnsupportedMsoRevocationMechanism")
+                    put(
+                        "description",
+                        "MSO uses unsupported revocation mechanisms. Used: '${used.joinToString()}', allowed: '${allowed.joinToString()}'",
+                    )
+                }
                 WalletResponseValidationError.HAIPValidationError.SdJwtVcMustUseTokenStatusList -> {
                     put("error", "HAIPValidationError.SdJwtVcMustUseTokenStatusList")
                     put("description", "SD-JWT VC must use Token Status List as revocation mechanism")

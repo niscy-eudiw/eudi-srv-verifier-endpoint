@@ -38,6 +38,8 @@ import eu.europa.ec.eudi.verifier.endpoint.adapter.out.tokenstatuslist.StatusChe
 import eu.europa.ec.eudi.verifier.endpoint.domain.*
 import eu.europa.ec.eudi.verifier.endpoint.port.input.WalletResponseValidationError
 import eu.europa.ec.eudi.verifier.endpoint.port.out.presentation.ValidateVerifiablePresentation
+import kotlinx.serialization.cbor.CborMap
+import kotlinx.serialization.cbor.CborString
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -184,6 +186,23 @@ internal class ValidateSdJwtVcOrMsoMdocVerifiablePresentation(
             if (null != vpFormatSupported.deviceAuthAlgorithms) {
                 ensure(deviceSignature.protectedHeaders().algorithm in vpFormatSupported.deviceAuthAlgorithms.map { it.value }) {
                     WalletResponseValidationError.InvalidVpToken("DeviceSigned not signed with a supported algorithm")
+                }
+            }
+
+            val mso = issuerSignature.decodeIsoPayload<CborMap>()
+            val status = mso["status"]
+            if (null != status) {
+                ensure(status is CborMap) {
+                    WalletResponseValidationError.InvalidVpToken("status is not a valid cbor map")
+                }
+                if (Profile.HAIP == presentation.profile) {
+                    val msoRevocationMechanisms = setOf(CborString("identifier_list"), CborString(TokenStatusListSpec.STATUS_LIST))
+                    ensure(status.keys.all { it in msoRevocationMechanisms }) {
+                        WalletResponseValidationError.HAIPValidationError.UnsupportedMsoRevocationMechanism(
+                            used = status.keys.map { it.toString() }.toSet(),
+                            allowed = msoRevocationMechanisms.map { it.toString() }.toSet(),
+                        )
+                    }
                 }
             }
         }

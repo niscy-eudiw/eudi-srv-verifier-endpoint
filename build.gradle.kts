@@ -113,6 +113,7 @@ kotlin {
             "kotlin.io.encoding.ExperimentalEncodingApi",
             "kotlin.contracts.ExperimentalContracts",
             "kotlin.time.ExperimentalTime",
+            "kotlin.ExperimentalUnsignedTypes",
         )
     }
 }
