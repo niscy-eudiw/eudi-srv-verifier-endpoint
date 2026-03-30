@@ -18,7 +18,7 @@ package eu.europa.ec.eudi.verifier.endpoint.adapter.out.mso
 import arrow.core.NonEmptyList
 import arrow.core.getOrElse
 import arrow.core.nonEmptyListOf
-import com.nimbusds.jose.util.X509CertUtils
+import arrow.core.toNonEmptyListOrNull
 import eu.europa.ec.eudi.etsi1196x2.consultation.IsChainTrustedForAttestation
 import eu.europa.ec.eudi.etsi1196x2.consultation.IsChainTrustedForContextF
 import eu.europa.ec.eudi.etsi1196x2.consultation.VerificationContext
@@ -26,6 +26,7 @@ import eu.europa.ec.eudi.verifier.endpoint.TestContext
 import eu.europa.ec.eudi.verifier.endpoint.adapter.out.consultation.Ignored
 import eu.europa.ec.eudi.verifier.endpoint.adapter.out.consultation.usingTrustAnchors
 import eu.europa.ec.eudi.verifier.endpoint.adapter.out.json.jsonSupport
+import eu.europa.ec.eudi.verifier.endpoint.adapter.out.keystore.loadKeyStore
 import eu.europa.ec.eudi.verifier.endpoint.domain.*
 import eu.europa.ec.eudi.verifier.endpoint.toConsultationAttestationClassifications
 import kotlinx.coroutines.test.runTest
@@ -47,51 +48,53 @@ private object Data {
      * The first and the second are valid
      * The 3d has expired validity info
      */
-    val ThreeDocumentVP = Data::class.java.getResource("/deviceresponsevalidator/ThreeDocumentDeviceResponse.txt")!!.readText()
+    val ThreeDocumentVP = Data::class.java.getResource(
+        "/deviceresponsevalidator/ThreeDocumentDeviceResponse.txt",
+    )!!.readText()
 
     /**
      * An mDL
      */
-    val MdlVP = Data::class.java.getResource("/deviceresponsevalidator/mDL-deviceresponse.txt")!!.readText()
+    val MdlVP = Data::class.java.getResource(
+        "/deviceresponsevalidator/mDL-deviceresponse.txt",
+    )!!.readText()
 
     /**
      * An mDL with Key Authorizations and Device Signed Items
      */
-    val VPWithDeviceSignedItems = Data::class.java.getResource(
-        "/deviceresponsevalidator/vp-withauthorizationdevicedsigned.txt",
+    val MdlAuthorizedDeviceSigned = Data::class.java.getResource(
+        "/deviceresponsevalidator/mDL-authorizeddevicesigned.txt",
     )!!.readText()
 
     /**
      * An mDL with Unauthorized Device Signed Items
      */
-    val VPWithUnauthorizedDeviceSignedItems = Data::class.java.getResource(
-        "/deviceresponsevalidator/vp-withunauthorizaeddevicesigned.txt",
+    val MdlUnauthorizedDeviceSigned = Data::class.java.getResource(
+        "/deviceresponsevalidator/mDL-unauthorizeddevicesigned.txt",
     )!!.readText()
 
-    // Trust anchors for ThreeDocumentVP and MdlVP
-    val firstIssuer =
-        nonEmptyListOf(
-            X509CertUtils.parse(
-                Data::class.java.getResource("/deviceresponsevalidator/pid-issuer.local.pem")!!.readText(),
-            ),
-        )
-
-    val secondIssuer =
-        nonEmptyListOf(
-            X509CertUtils.parse(
-                Data::class.java.getResource("/deviceresponsevalidator/dev.issuer-backend.eudiw.dev.pem")!!.readText(),
-            ),
-        )
-
-    val attestationClassifications = jsonSupport.decodeFromString<AttestationClassifications>(
-        Data::class.java.getResource("/deviceresponsevalidator/attestationclassifications.json")!!.readText(),
-    ).toConsultationAttestationClassifications()
-
+    /**
+     * Various MSO MDoc Credentials issued by Kotlin and Python issuers
+     * to ensure they are being properly validated
+     */
     val attestationsToValidate =
         nonEmptyListOf(
             "/deviceresponsevalidator/kotlin-issuer-pid.txt",
             "/deviceresponsevalidator/kotlin-issuer-mdl.txt",
         )
+
+    val trustedIssuers: NonEmptyList<X509Certificate> by lazy {
+        val keyStore = loadKeyStore(location = "classpath:trusted-issuers.jks", password = "")
+        val certs = run {
+            val aliases = keyStore.aliases().toList()
+            aliases.filter { keyStore.isCertificateEntry(it) }.map { keyStore.getCertificate(it) as X509Certificate }
+        }.toNonEmptyListOrNull()
+        checkNotNull(certs) { "Unable to load X509 Certificates from 'classpath:trusted-issuers.jks'" }
+    }
+
+    val attestationClassifications = jsonSupport.decodeFromString<AttestationClassifications>(
+        Data::class.java.getResource("/deviceresponsevalidator/attestationclassifications.json")!!.readText(),
+    ).toConsultationAttestationClassifications()
 }
 
 private val log = LoggerFactory.getLogger(DeviceResponseValidatorTest::class.java)
@@ -99,7 +102,7 @@ private val log = LoggerFactory.getLogger(DeviceResponseValidatorTest::class.jav
 class DeviceResponseValidatorTest {
 
     private val clock = run {
-        val testDate = LocalDateTime(2026, 1, 22, 0, 0, 0, 0)
+        val testDate = LocalDateTime(2024, 11, 1, 0, 0)
         Clock.fixed(
             testDate.toInstant(kotlinx.datetime.TimeZone.of("Europe/Athens")),
             kotlinx.datetime.TimeZone.of("Europe/Athens"),
@@ -109,7 +112,7 @@ class DeviceResponseValidatorTest {
     @Test
     fun `a vp_token where the 3d document has an invalid validity info should fail`() = runTest {
         val invalidDocument = run {
-            val isChainTrusted = IsChainTrustedForContextF.usingTrustAnchors(Data.firstIssuer) {
+            val isChainTrusted = IsChainTrustedForContextF.usingTrustAnchors(Data.trustedIssuers) {
                 isRevocationEnabled = false
                 date = clock.now().toJavaDate()
             }
@@ -133,7 +136,7 @@ class DeviceResponseValidatorTest {
     @Test
     fun `a vp_token where the 3d document has an invalid validity info should not fail when skip`() = runTest {
         val validDocuments = run {
-            val isChainTrusted = IsChainTrustedForContextF.usingTrustAnchors(Data.firstIssuer) {
+            val isChainTrusted = IsChainTrustedForContextF.usingTrustAnchors(Data.trustedIssuers) {
                 isRevocationEnabled = false
                 date = clock.now().toJavaDate()
             }
@@ -148,7 +151,7 @@ class DeviceResponseValidatorTest {
     @Test
     fun `a vp_token having a single document with invalid chain should fail`() = runTest {
         val invalidDocument = run {
-            val isChainTrusted = IsChainTrustedForContextF.usingTrustAnchors(Data.secondIssuer) {
+            val isChainTrusted = IsChainTrustedForContextF.usingTrustAnchors(Data.trustedIssuers) {
                 isRevocationEnabled = false
                 date = clock.now().toJavaDate()
             }
@@ -204,6 +207,20 @@ class DeviceResponseValidatorTest {
     @Nested
     inner class KeyAuthorizationTest {
 
+        private val handoverInfo: HandoverInfo by lazy {
+            val verifierId = VerifierId.PreRegistered(
+                originalClientId = "client_id",
+                accessCertificate = TestContext.verifierId.accessCertificate,
+            )
+
+            HandoverInfo.OpenID4VPHandoverInfo(
+                clientId = verifierId,
+                nonce = Nonce("nonce"),
+                ephemeralEncryptionKey = null,
+                responseUri = URL("https://example.com/direct_post"),
+            )
+        }
+
         @Test
         fun `device signed items in an authorized namespace are accepted`() = runTest {
             val validDocuments = run {
@@ -214,9 +231,8 @@ class DeviceResponseValidatorTest {
                         Data.attestationClassifications,
                         clock,
                     )
-                val handoverInfo = deviceSignedHandoverInfo()
 
-                val validated = vpValidator.ensureValid(Data.VPWithDeviceSignedItems, handoverInfo = handoverInfo)
+                val validated = vpValidator.ensureValid(Data.MdlAuthorizedDeviceSigned, handoverInfo = handoverInfo)
                 validated.getOrElse { error -> error("Validation failed: $error") }
             }
 
@@ -233,9 +249,8 @@ class DeviceResponseValidatorTest {
                         Data.attestationClassifications,
                         clock,
                     )
-                val handoverInfo = deviceSignedHandoverInfo()
 
-                val validated = vpValidator.ensureValid(Data.VPWithUnauthorizedDeviceSignedItems, handoverInfo = handoverInfo)
+                val validated = vpValidator.ensureValid(Data.MdlUnauthorizedDeviceSigned, handoverInfo = handoverInfo)
                 val invalidDocuments =
                     assertIs<DeviceResponseError.InvalidDocuments>(validated.leftOrNull()).invalidDocuments
                 assertEquals(1, invalidDocuments.size)
@@ -248,20 +263,6 @@ class DeviceResponseValidatorTest {
                 invalidDocument.errors.head
             }
             assertIs<DocumentError.DeviceKeyNotAuthorizedToSignItems>(documentError)
-        }
-
-        private fun deviceSignedHandoverInfo(): HandoverInfo {
-            val verifierId = VerifierId.PreRegistered(
-                originalClientId = "client_id",
-                accessCertificate = TestContext.verifierId.accessCertificate,
-            )
-
-            return HandoverInfo.OpenID4VPHandoverInfo(
-                clientId = verifierId,
-                nonce = Nonce("nonce"),
-                ephemeralEncryptionKey = null,
-                responseUri = URL("https://example.com/direct_post"),
-            )
         }
     }
 }
