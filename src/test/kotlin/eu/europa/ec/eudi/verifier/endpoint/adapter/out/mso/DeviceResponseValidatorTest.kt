@@ -79,8 +79,23 @@ private object Data {
      */
     val attestationsToValidate =
         nonEmptyListOf(
-            "/deviceresponsevalidator/kotlin-issuer/pid.txt",
-            "/deviceresponsevalidator/kotlin-issuer/mdl.txt",
+            "/deviceresponsevalidator/kotlin-issuer/pid.txt" to "eu.europa.ec.eudi.pid.1",
+            "/deviceresponsevalidator/kotlin-issuer/mdl.txt" to "org.iso.18013.5.1.mDL",
+            "/deviceresponsevalidator/python-issuer/pid.txt" to "eu.europa.ec.eudi.pid.1",
+            "/deviceresponsevalidator/python-issuer/mdl.txt" to "org.iso.18013.5.1.mDL",
+            "/deviceresponsevalidator/python-issuer/cor.txt" to "eu.europa.ec.eudi.cor.1",
+            "/deviceresponsevalidator/python-issuer/ehic.txt" to "eu.europa.ec.eudi.ehic.1",
+            "/deviceresponsevalidator/python-issuer/employeeID.txt" to "eu.europa.ec.eudi.employee.1",
+            "/deviceresponsevalidator/python-issuer/healthID.txt" to "eu.europa.ec.eudi.hiid.1",
+            "/deviceresponsevalidator/python-issuer/iban.txt" to "eu.europa.ec.eudi.iban.1",
+            "/deviceresponsevalidator/python-issuer/loyaltyCard.txt" to "eu.europa.ec.eudi.loyalty.1",
+            "/deviceresponsevalidator/python-issuer/msisdn.txt" to "eu.europa.ec.eudi.msisdn.1",
+            "/deviceresponsevalidator/python-issuer/pda1.txt" to "eu.europa.ec.eudi.pda1.1",
+            "/deviceresponsevalidator/python-issuer/photoID.txt" to "org.iso.23220.2.photoid.1",
+            "/deviceresponsevalidator/python-issuer/por.txt" to "eu.europa.ec.eudi.por.1",
+            "/deviceresponsevalidator/python-issuer/seaFarer.txt" to "eu.europa.ec.eudi.seafarer.1",
+            "/deviceresponsevalidator/python-issuer/tax.txt" to "eu.europa.ec.eudi.tax.1",
+            "/deviceresponsevalidator/python-issuer/reservation.txt" to "org.iso.18013.5.1.reservation",
         )
 
     val trustedIssuers: NonEmptyList<X509Certificate> by lazy {
@@ -195,12 +210,14 @@ class DeviceResponseValidatorTest {
                 Data.attestationClassifications,
                 Clock.System,
             )
-        Data.attestationsToValidate.forEach {
-            log.info("Checking $it")
-            val vpToken = Data::class.java.getResource(it)!!.readText()
+        Data.attestationsToValidate.forEach { (resource, docType) ->
+            log.info("Checking $resource")
+            val vpToken = Data::class.java.getResource(resource)!!.readText()
             val validated = validator.ensureValid(vpToken)
-            val documents = validated.getOrElse { error -> fail("Failed to validated $it, error: $error") }
+            val documents = validated.getOrElse { error -> fail("Failed to validated $resource, error: $error") }
             assertEquals(1, documents.size)
+            val document = documents.first()
+            assertEquals(docType, document.docType)
         }
     }
 
