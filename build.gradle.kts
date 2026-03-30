@@ -1,5 +1,4 @@
 import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
-import org.owasp.dependencycheck.gradle.extension.DependencyCheckExtension
 import org.springframework.boot.gradle.plugin.SpringBootPlugin
 import org.springframework.boot.gradle.tasks.bundling.BootBuildImage
 
@@ -160,9 +159,7 @@ spotless {
     }
 }
 
-val nvdApiKey: String? = System.getenv("NVD_API_KEY") ?: properties["nvdApiKey"]?.toString()
-val dependencyCheckExtension = extensions.findByType(DependencyCheckExtension::class.java)
-dependencyCheckExtension?.apply {
+dependencyCheck {
     formats = mutableListOf("XML", "HTML")
-    nvd.apiKey = nvdApiKey ?: ""
+    nvd.apiKey = System.getenv("NVD_API_KEY") ?: properties["nvdApiKey"]?.toString() ?: ""
 }
