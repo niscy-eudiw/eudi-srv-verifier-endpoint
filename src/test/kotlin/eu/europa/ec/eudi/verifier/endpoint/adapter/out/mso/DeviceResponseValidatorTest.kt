@@ -210,7 +210,7 @@ class DeviceResponseValidatorTest {
                 val vpValidator =
                     deviceResponseValidator(
                         IsChainTrustedForContextF.Ignored,
-                        ValidityInfoShouldBe.NotExpired,
+                        ValidityInfoShouldBe.Ignored,
                         Data.attestationClassifications,
                         clock,
                     )
@@ -229,7 +229,7 @@ class DeviceResponseValidatorTest {
                 val vpValidator =
                     deviceResponseValidator(
                         IsChainTrustedForContextF.Ignored,
-                        ValidityInfoShouldBe.NotExpired,
+                        ValidityInfoShouldBe.Ignored,
                         Data.attestationClassifications,
                         clock,
                     )
