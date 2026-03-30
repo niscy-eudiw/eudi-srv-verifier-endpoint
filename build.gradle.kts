@@ -23,6 +23,12 @@ repositories {
             releasesOnly()
         }
     }
+    maven {
+        url = uri("https://maven.waltid.dev/snapshots")
+        mavenContent {
+            snapshotsOnly()
+        }
+    }
 }
 
 dependencies {
