@@ -49,7 +49,10 @@ typealias PresentationRelatedUrlBuilder<ID> = (ID) -> URL
  */
 sealed interface EmbedOption<in ID> {
     data object ByValue : EmbedOption<Any>
-    data class ByReference<ID>(val buildUrl: PresentationRelatedUrlBuilder<ID>) : EmbedOption<ID>
+
+    data class ByReference<ID>(
+        val buildUrl: PresentationRelatedUrlBuilder<ID>,
+    ) : EmbedOption<ID>
 
     companion object {
         fun <ID> byReference(urlBuilder: PresentationRelatedUrlBuilder<ID>): ByReference<ID> = ByReference(urlBuilder)
@@ -74,7 +77,6 @@ enum class ResponseModeOption {
 }
 
 sealed interface ResponseMode {
-
     data object DirectPost : ResponseMode
 
     data class DirectPostJwt(
@@ -87,10 +89,11 @@ sealed interface ResponseMode {
 }
 
 val ResponseMode.option: ResponseModeOption
-    get() = when (this) {
-        ResponseMode.DirectPost -> ResponseModeOption.DirectPost
-        is ResponseMode.DirectPostJwt -> ResponseModeOption.DirectPostJwt
-    }
+    get() =
+        when (this) {
+            ResponseMode.DirectPost -> ResponseModeOption.DirectPost
+            is ResponseMode.DirectPostJwt -> ResponseModeOption.DirectPostJwt
+        }
 
 data class ResponseEncryptionOption(
     val algorithm: JWEAlgorithm,
@@ -104,7 +107,9 @@ data class ResponseEncryptionOption(
 
 @Serializable
 @JvmInline
-value class CoseAlgorithm(val value: Int)
+value class CoseAlgorithm(
+    val value: Int,
+)
 
 /**
  * Verifiable Presentation formats supported by Verifier Endpoint.
@@ -127,7 +132,6 @@ data class VpFormatsSupported(
     data class SdJwtVc(
         @SerialName(OpenId4VPSpec.VP_FORMATS_SUPPORTS_SD_JWT_VC_SD_JWT_ALGORITHMS)
         val sdJwtAlgorithms: NonEmptyList<JWSAlgorithm>?,
-
         @SerialName(OpenId4VPSpec.VP_FORMATS_SUPPORTS_SD_JWT_VC_KB_JWT_ALGORITHMS)
         val kbJwtAlgorithms: NonEmptyList<JWSAlgorithm>?,
     ) {
@@ -153,23 +157,25 @@ data class VpFormatsSupported(
     data class MsoMdoc(
         @SerialName(OpenId4VPSpec.VP_FORMATS_SUPPORTED_MSO_MDOC_ISSUER_AUTH_ALGORITHMS)
         val issuerAuthAlgorithms: NonEmptyList<CoseAlgorithm>?,
-
         @SerialName(OpenId4VPSpec.VP_FORMATS_SUPPORTED_MSO_MDOC_DEVICE_AUTH_ALGORITHMS)
         val deviceAuthAlgorithms: NonEmptyList<CoseAlgorithm>?,
     ) {
         companion object {
-            val Default: MsoMdoc = MsoMdoc(
-                issuerAuthAlgorithms = nonEmptyListOf(
-                    CoseAlgorithm(-7), // AlgorithmID.ECDSA_256
-                    CoseAlgorithm(-35), // AlgorithmID.ECDSA_384
-                    CoseAlgorithm(-36), // AlgorithmID.ECDSA_512
-                ),
-                deviceAuthAlgorithms = nonEmptyListOf(
-                    CoseAlgorithm(-7), // AlgorithmID.ECDSA_256
-                    CoseAlgorithm(-35), // AlgorithmID.ECDSA_384
-                    CoseAlgorithm(-36), // AlgorithmID.ECDSA_512
-                ),
-            )
+            val Default: MsoMdoc =
+                MsoMdoc(
+                    issuerAuthAlgorithms =
+                        nonEmptyListOf(
+                            CoseAlgorithm(-7), // AlgorithmID.ECDSA_256
+                            CoseAlgorithm(-35), // AlgorithmID.ECDSA_384
+                            CoseAlgorithm(-36), // AlgorithmID.ECDSA_512
+                        ),
+                    deviceAuthAlgorithms =
+                        nonEmptyListOf(
+                            CoseAlgorithm(-7), // AlgorithmID.ECDSA_256
+                            CoseAlgorithm(-35), // AlgorithmID.ECDSA_384
+                            CoseAlgorithm(-36), // AlgorithmID.ECDSA_512
+                        ),
+                )
         }
     }
 }
@@ -198,9 +204,10 @@ data class AccessCertificate(
         require(algorithm in JWSAlgorithm.Family.SIGNATURE) { "'${algorithm.name}' is not a valid signature algorithm" }
 
         // Verify a JWSSigner can be instantiated with the provided key/algorithm combo
-        Either.catch {
-            DefaultJWSSignerFactory().createJWSSigner(key, algorithm)
-        }.getOrThrow { IllegalArgumentException("Invalid configuration", it) }
+        Either
+            .catch {
+                DefaultJWSSignerFactory().createJWSSigner(key, algorithm)
+            }.getOrThrow { IllegalArgumentException("Invalid configuration", it) }
     }
 
     /**
@@ -275,7 +282,9 @@ sealed interface VerifierId {
 /**
  * Hashing algorithms.
  */
-enum class HashAlgorithm(val ianaName: String) {
+enum class HashAlgorithm(
+    val ianaName: String,
+) {
     SHA_256("sha-256"),
     SHA_384("sha-384"),
     SHA_512("sha-512"),
@@ -303,14 +312,15 @@ data class VerifierConfig(
 /**
  * Checks if [value] is a Subject Alternative Name of [type] in this [X509Certificate].
  */
-private fun X509Certificate.containsSan(value: String, type: SanType) =
-    value in this.san(type)
+private fun X509Certificate.containsSan(
+    value: String,
+    type: SanType,
+) = value in this.san(type)
 
 /**
  * Checks if [value] is a 'DNS' Subject Alternative Name in this [X509Certificate].
  */
-private fun X509Certificate.containsSanDns(value: String) =
-    containsSan(value, SanType.DNS)
+private fun X509Certificate.containsSanDns(value: String) = containsSan(value, SanType.DNS)
 
 private fun X509Certificate.encodedHashMatches(expected: String): Boolean {
     val hash = hash(encoded, HashAlgorithm.SHA_256)
@@ -321,8 +331,7 @@ private fun X509Certificate.encodedHashMatches(expected: String): Boolean {
 /**
  * Checks if [value] is a 'URI' Subject Alternative Name in this [X509Certificate].
  */
-private fun X509Certificate.containsSanUri(value: String) =
-    containsSan(value, SanType.URI)
+private fun X509Certificate.containsSanUri(value: String) = containsSan(value, SanType.URI)
 
 /**
  * Gets the Subject Alternative Names of the provided [type] from this [X509Certificate].
