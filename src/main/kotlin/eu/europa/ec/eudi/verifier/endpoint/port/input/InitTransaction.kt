@@ -539,8 +539,8 @@ internal fun InitTransactionTO.toDomain(
                     ).flatMap { transactionData ->
                         Either.catch {
                             when (transactionData.type) {
-                                QesAuthorization.TYPE -> QesAuthorization.serializer()
-                                QCertCreationAcceptance.TYPE -> QCertCreationAcceptance.serializer()
+                                QesApproval.TYPE -> QesApproval.serializer()
+                                QesRequest.TYPE -> QesRequest.serializer()
                                 else -> null
                             }?.let { deserializer -> it.decodeAs(deserializer) }
                             transactionData
