@@ -17,6 +17,7 @@ package eu.europa.ec.eudi.verifier.endpoint.port.input
 
 import arrow.core.NonEmptyList
 import arrow.core.max
+import eu.europa.ec.eudi.verifier.endpoint.domain.Profile
 import eu.europa.ec.eudi.verifier.endpoint.domain.TransactionId
 import eu.europa.ec.eudi.verifier.endpoint.port.out.persistence.LoadPresentationById
 import eu.europa.ec.eudi.verifier.endpoint.port.out.persistence.LoadPresentationEvents
@@ -123,6 +124,11 @@ private fun toTransferObject(event: PresentationEvent) =
                 put("status_reference", event.statusReference.json())
                 put("cause", event.cause)
             }
+
+            is PresentationEvent.DcApiTransactionInitialized -> {
+                put("response", event.response.json())
+                put("profile", event.profile.json())
+            }
         }
     }
 
@@ -137,6 +143,7 @@ private fun JsonObjectBuilder.putEventNameAndActor(e: PresentationEvent) {
     val (eventName, actor) =
         when (e) {
             is PresentationEvent.TransactionInitialized -> "Transaction initialized" to Actor.Verifier
+            is PresentationEvent.DcApiTransactionInitialized -> "DC Api Transaction initialized" to Actor.Verifier
             is PresentationEvent.RequestObjectRetrieved -> "Request object retrieved" to Actor.Wallet
             is PresentationEvent.FailedToRetrieveRequestObject -> "FailedToRetrieve request" to Actor.Wallet
             is PresentationEvent.WalletResponsePosted -> "Wallet response posted" to Actor.Wallet
@@ -196,6 +203,13 @@ private fun WalletResponseValidationError.asText(): String =
         WalletResponseValidationError.HAIPValidationError.SdJwtVcMustUseTokenStatusList -> {
             "SD-JWT VC must use Token Status List as revocation mechanism"
         }
+    }
+
+private fun Profile.json(): String =
+    when (this) {
+        Profile.OpenId4VP -> "openid4vp"
+        Profile.HAIP -> "haip"
+        Profile.ETSI119472Part2 -> "etsi119472part2"
     }
 
 private inline fun <reified A> A.json() = Json.encodeToJsonElement(this)

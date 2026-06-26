@@ -148,6 +148,8 @@ class RetrieveRequestObjectLive(
             RetrieveRequestObjectError.InvalidState(Presentation.Requested::class, presentation::class)
         }
 
+        check(presentation.channel is Channel.OverHttp)
+
         suspend fun updatePresentationAndCreateJar(
             encryptionRequirement: EncryptionRequirement,
         ): Pair<Presentation.RequestObjectRetrieved, Jwt> {
@@ -169,19 +171,19 @@ class RetrieveRequestObjectLive(
         when (method) {
             is RetrieveRequestObjectMethod.Get -> {
                 ensure(
-                    presentation.requestUriMethod == RequestUriMethod.PostOrGet ||
-                        presentation.requestUriMethod == RequestUriMethod.Get,
+                    presentation.channel.requestUriMethod == RequestUriMethod.PostOrGet ||
+                        presentation.channel.requestUriMethod == RequestUriMethod.Get,
                 ) {
-                    RetrieveRequestObjectError.InvalidRequestUriMethod(presentation.requestUriMethod)
+                    RetrieveRequestObjectError.InvalidRequestUriMethod(presentation.channel.requestUriMethod)
                 }
             }
 
             is RetrieveRequestObjectMethod.Post -> {
                 ensure(
-                    presentation.requestUriMethod == RequestUriMethod.PostOrGet ||
-                        presentation.requestUriMethod == RequestUriMethod.Post,
+                    presentation.channel.requestUriMethod == RequestUriMethod.PostOrGet ||
+                        presentation.channel.requestUriMethod == RequestUriMethod.Post,
                 ) {
-                    RetrieveRequestObjectError.InvalidRequestUriMethod(presentation.requestUriMethod)
+                    RetrieveRequestObjectError.InvalidRequestUriMethod(presentation.channel.requestUriMethod)
                 }
             }
         }
@@ -297,7 +299,11 @@ private class WalletMetadataValidator(
         metadata: WalletMetadataTO,
         presentation: Presentation.Requested,
     ) {
-        val responseMode = presentation.responseMode.option.name()
+        check(presentation.channel is Channel.OverHttp)
+
+        val responseMode =
+            presentation.channel.responseMode.option
+                .name()
         val supportedResponseModes = metadata.responseModesSupported ?: RFC8414.DEFAULT_RESPONSE_MODES_SUPPORTED
         ensure(responseMode in supportedResponseModes) {
             RetrieveRequestObjectError.UnsupportedWalletMetadata("Wallet does not support Response Mode '$responseMode'")
@@ -393,6 +399,7 @@ private fun ResponseModeOption.name(): String =
     when (this) {
         ResponseModeOption.DirectPost -> OpenId4VPSpec.RESPONSE_MODE_DIRECT_POST
         ResponseModeOption.DirectPostJwt -> OpenId4VPSpec.RESPONSE_MODE_DIRECT_POST_JWT
+        ResponseModeOption.DcApiJwt -> error("DC API request objects are not retrieved through RetrieveRequestObject")
     }
 
 private fun <T> commonGround(

@@ -55,7 +55,8 @@ class CreateJarNimbus(
     ): Jwt =
         withContext(Dispatchers.Default) {
             val requestObject = requestObjectFromDomain(verifierConfig, clock, presentation)
-            val signedJar = sign(presentation.responseMode, requestObject, walletNonce)
+            val responseMode = presentation.channel.responseMode
+            val signedJar = sign(responseMode, requestObject, walletNonce)
             when (walletJarEncryptionRequirement) {
                 EncryptionRequirement.NotRequired -> signedJar.serialize()
                 is EncryptionRequirement.Required -> encrypt(walletJarEncryptionRequirement, signedJar).serialize()
@@ -86,6 +87,7 @@ class CreateJarNimbus(
                     type(JOSEObjectType(RFC9101.REQUEST_OBJECT_MEDIA_SUBTYPE))
                 }.build()
         val clientMetaData = verifierConfig.clientMetaData
+
         val claimSet = asClaimSet(toNimbus(clientMetaData, responseMode), requestObject, walletNonce)
         return SignedJWT(header, claimSet).apply { sign(DefaultJWSSignerFactory().createJWSSigner(key, algorithm)) }
     }
@@ -124,11 +126,14 @@ class CreateJarNimbus(
         val responseType = ResponseType(*r.responseType.map { ResponseType.Value(it) }.toTypedArray())
         val clientId = ClientID(r.verifierId.clientId)
         val scope = Scope(*r.scope.map { Scope.Value(it) }.toTypedArray())
-        val state = State(r.state)
+        val state = r.state?.let { State(r.state) }
+        val expectedOrigins = r.expectedOrigins?.takeIf { it.isNotEmpty() }
 
         val authorizationRequestClaims =
             with(AuthorizationRequest.Builder(responseType, clientId)) {
-                state(state)
+                if (state != null) {
+                    state(state)
+                }
                 if (scope.isNotEmpty()) {
                     scope(scope)
                 }
@@ -144,13 +149,14 @@ class CreateJarNimbus(
                 v?.let { claim(c, it) }
             }
             issueTime(r.issuedAt.toJavaDate())
-            audience(r.aud)
+            audience(r.audience)
             claim(OpenId4VPSpec.NONCE, r.nonce)
             optionalClaim(OpenId4VPSpec.CLIENT_METADATA, clientMetaData?.toJSONObject())
             optionalClaim(OpenId4VPSpec.RESPONSE_URI, r.responseUri?.toExternalForm())
-            optionalClaim(OpenId4VPSpec.DCQL_QUERY, r.dcqlQuery?.toJackson())
+            claim(OpenId4VPSpec.DCQL_QUERY, r.query.toJackson())
             optionalClaim(OpenId4VPSpec.TRANSACTION_DATA, r.transactionData?.toJackson())
             optionalClaim(OpenId4VPSpec.WALLET_NONCE, walletNonce)
+            optionalClaim(OpenId4VPSpec.DCAPI_EXPECTED_ORIGINS, expectedOrigins?.toJackson())
             build()
         }
     }
@@ -160,8 +166,15 @@ class CreateJarNimbus(
         responseMode: ResponseMode,
     ): OIDCClientMetadata =
         OIDCClientMetadata().apply {
-            if (responseMode is ResponseMode.DirectPostJwt) {
-                jwkSet = JWKSet(listOf(responseMode.ephemeralResponseEncryptionKey)).toPublicJWKSet()
+            val ephemeralResponseEncryptionKey =
+                when (responseMode) {
+                    is ResponseMode.OverHttp.DirectPostJwt -> responseMode.ephemeralResponseEncryptionKey
+                    is ResponseMode.OverDcApi.DcApiJwt -> responseMode.ephemeralResponseEncryptionKey
+                    else -> null
+                }
+
+            ephemeralResponseEncryptionKey?.let { encryptionKey ->
+                jwkSet = JWKSet(listOf(encryptionKey)).toPublicJWKSet()
                 setCustomField(
                     OpenId4VPSpec.ENCRYPTED_RESPONSE_ENC_VALUES_SUPPORTED,
                     c.responseEncryptionOption.encryptionMethods

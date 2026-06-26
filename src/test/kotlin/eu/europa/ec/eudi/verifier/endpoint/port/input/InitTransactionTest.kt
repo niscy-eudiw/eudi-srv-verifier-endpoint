@@ -169,7 +169,7 @@ class InitTransactionTest {
             assertNotNull(jwtSecuredAuthorizationRequest.request)
             val presentation = loadPresentationById(testTransactionId)
             val requestObjectRetrieved = assertIs<Presentation.RequestObjectRetrieved>(presentation)
-            assertEquals(ResponseModeOption.DirectPost, requestObjectRetrieved.responseMode.option)
+            assertEquals(ResponseModeOption.DirectPost, requestObjectRetrieved.channel.responseMode.option)
         }
 
     /**
@@ -269,7 +269,8 @@ class InitTransactionTest {
             )
             val presentation = loadPresentationById(testTransactionId)
             assertIs<Presentation.RequestObjectRetrieved>(presentation)
-            assertIs<GetWalletResponseMethod.Redirect>(presentation.getWalletResponseMethod)
+            assertIs<Channel.OverHttp>(presentation.channel)
+            assertIs<GetWalletResponseMethod.Redirect>(presentation.channel.getWalletResponseMethod)
         }
 
     @Test
@@ -292,7 +293,8 @@ class InitTransactionTest {
             )
             val presentation = loadPresentationById(testTransactionId)
             assertIs<Presentation.RequestObjectRetrieved>(presentation)
-            assertIs<GetWalletResponseMethod.Poll>(presentation.getWalletResponseMethod)
+            assertIs<Channel.OverHttp>(presentation.channel)
+            assertIs<GetWalletResponseMethod.Poll>(presentation.channel.getWalletResponseMethod)
         }
 
     @Test
@@ -422,10 +424,13 @@ class InitTransactionTest {
         input: InitTransactionTO,
         expectedError: ValidationError,
     ) = either {
-        input.toDomain(
-            verifierConfig.transactionDataHashAlgorithm,
-            verifierConfig.clientMetaData.vpFormatsSupported,
-        )
+        context(verifierConfig.transactionDataHashAlgorithm, verifierConfig.clientMetaData.vpFormatsSupported) {
+            validate(
+                input.dcqlQuery,
+                input.nonce,
+                input.transactionData,
+            )
+        }
     }.fold(
         ifRight = { fail("Invalid input accepted") },
         ifLeft = { error -> assertEquals(expectedError, error) },

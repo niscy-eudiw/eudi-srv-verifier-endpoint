@@ -17,7 +17,9 @@ package eu.europa.ec.eudi.verifier.endpoint.adapter.out.persistence
 
 import arrow.core.NonEmptyList
 import arrow.core.nonEmptyListOf
+import eu.europa.ec.eudi.verifier.endpoint.domain.Channel
 import eu.europa.ec.eudi.verifier.endpoint.domain.Presentation
+import eu.europa.ec.eudi.verifier.endpoint.domain.RequestId
 import eu.europa.ec.eudi.verifier.endpoint.domain.TransactionId
 import eu.europa.ec.eudi.verifier.endpoint.domain.isExpired
 import eu.europa.ec.eudi.verifier.endpoint.port.out.persistence.*
@@ -40,13 +42,12 @@ class PresentationInMemoryRepo(
     }
 
     val loadPresentationByRequestId: LoadPresentationByRequestId by lazy {
-        fun requestId(p: Presentation) =
-            when (p) {
-                is Presentation.Requested -> p.requestId
-                is Presentation.RequestObjectRetrieved -> p.requestId
-                is Presentation.Submitted -> p.requestId
-                is Presentation.TimedOut -> null
-            }
+        fun requestId(p: Presentation): RequestId? {
+            val channel = p.channel
+            if (p is Presentation.TimedOut || channel !is Channel.OverHttp) return null
+            return channel.requestId
+        }
+
         LoadPresentationByRequestId { requestId ->
             presentations.values.map { it.presentation }.firstOrNull {
                 requestId(it) == requestId
@@ -58,6 +59,7 @@ class PresentationInMemoryRepo(
         LoadIncompletePresentationsOlderThan { at ->
             presentations.values
                 .map { it.presentation }
+                .filter { it !is Presentation.Submitted && it !is Presentation.TimedOut }
                 .toList()
                 .filter { it.isExpired(at) }
         }
@@ -129,5 +131,6 @@ private fun log(e: PresentationEvent) {
         is PresentationEvent.WalletResponsePosted -> info("Wallet posted response")
         is PresentationEvent.AttestationStatusCheckSuccessful -> info("Attestation status check successful")
         is PresentationEvent.AttestationStatusCheckFailed -> warn("Attestation status check failed")
+        is PresentationEvent.DcApiTransactionInitialized -> info("DC API transaction initialized")
     }
 }

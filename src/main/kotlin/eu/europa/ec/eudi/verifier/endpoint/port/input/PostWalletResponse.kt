@@ -29,6 +29,7 @@ import eu.europa.ec.eudi.verifier.endpoint.adapter.out.utils.getOrThrow
 import eu.europa.ec.eudi.verifier.endpoint.domain.*
 import eu.europa.ec.eudi.verifier.endpoint.domain.Presentation.RequestObjectRetrieved
 import eu.europa.ec.eudi.verifier.endpoint.domain.Presentation.Submitted
+import eu.europa.ec.eudi.verifier.endpoint.port.input.WalletResponseValidationError.*
 import eu.europa.ec.eudi.verifier.endpoint.port.out.cfg.CreateQueryWalletResponseRedirectUri
 import eu.europa.ec.eudi.verifier.endpoint.port.out.cfg.GenerateResponseCode
 import eu.europa.ec.eudi.verifier.endpoint.port.out.jose.VerifyEncryptedResponse
@@ -61,6 +62,10 @@ sealed interface AuthorisationResponse {
     data class DirectPostJwt(
         val encryptedResponse: Jwt,
     ) : AuthorisationResponse
+
+    data class DcApiJwt(
+        val encryptedResponse: Jwt,
+    ) : AuthorisationResponse
 }
 
 private fun AuthorisationResponse.DirectPost.isErrorResponse(): Boolean = null != response.error
@@ -69,7 +74,7 @@ sealed interface WalletResponseValidationError {
     data object PresentationNotFound : WalletResponseValidationError
 
     data class UnexpectedResponseMode(
-        val requestId: RequestId,
+        val requestId: RequestId?,
         val expected: ResponseModeOption,
         val actual: ResponseModeOption,
     ) : WalletResponseValidationError
@@ -126,14 +131,14 @@ private suspend fun AuthorisationResponseTO.verifiablePresentations(
     validateVerifiablePresentation: ValidateVerifiablePresentation,
     vpFormatsSupported: VpFormatsSupported,
 ): VerifiablePresentations {
-    ensureNotNull(vpToken) { WalletResponseValidationError.MissingVpToken }
+    ensureNotNull(vpToken) { MissingVpToken }
 
     suspend fun JsonObject.toVerifiablePresentations(): Map<QueryId, List<VerifiablePresentation>> {
         val vpToken =
             try {
                 Json.decodeFromJsonElement<Map<QueryId, List<JsonElement>>>(this)
             } catch (e: Exception) {
-                raise(WalletResponseValidationError.InvalidVpToken("Failed to decode vp_token", e))
+                raise(InvalidVpToken("Failed to decode vp_token", e))
             }
 
         val credentialQueries =
@@ -143,7 +148,7 @@ private suspend fun AuthorisationResponseTO.verifiablePresentations(
             val format =
                 credentialQueries[queryId]?.format
                     ?: raise(
-                        WalletResponseValidationError.InvalidVpToken(
+                        InvalidVpToken(
                             "vp_token references non-existing Credential Query",
                             null,
                         ),
@@ -154,7 +159,7 @@ private suspend fun AuthorisationResponseTO.verifiablePresentations(
                     ?.filter { queryId.value in it.credentialIds }
                     ?.toNonEmptyListOrNull()
             ensure(vpFormatsSupported.supports(format)) {
-                WalletResponseValidationError.InvalidVpToken(
+                InvalidVpToken(
                     "vp_token contains a Verifiable Presentation in an unsupported format",
                     null,
                 )
@@ -171,7 +176,7 @@ private suspend fun AuthorisationResponseTO.verifiablePresentations(
 
     val verifiablePresentations = vpToken.toVerifiablePresentations()
     ensure(presentation.query.satisfiedBy(verifiablePresentations)) {
-        WalletResponseValidationError.RequiredCredentialSetNotSatisfied
+        RequiredCredentialSetNotSatisfied
     }
 
     return VerifiablePresentations(verifiablePresentations)
@@ -182,7 +187,7 @@ private fun JsonElement.toVerifiablePresentation(format: Format): VerifiablePres
     fun JsonElement.asString(): VerifiablePresentation.Str {
         val element = this@asString
         ensure(element is JsonPrimitive && element.isString) {
-            WalletResponseValidationError.InvalidVpToken("vp_token contains a non-string element", null)
+            InvalidVpToken("vp_token contains a non-string element", null)
         }
         return VerifiablePresentation.Str(element.content, format)
     }
@@ -192,7 +197,7 @@ private fun JsonElement.toVerifiablePresentation(format: Format): VerifiablePres
             is JsonPrimitive -> {
                 ensure(
                     element.isString,
-                ) { WalletResponseValidationError.InvalidVpToken("vp_token contains a non-string element", null) }
+                ) { InvalidVpToken("vp_token contains a non-string element", null) }
                 VerifiablePresentation.Str(element.content, format)
             }
 
@@ -202,7 +207,7 @@ private fun JsonElement.toVerifiablePresentation(format: Format): VerifiablePres
 
             else -> {
                 raise(
-                    WalletResponseValidationError.InvalidVpToken(
+                    InvalidVpToken(
                         "vp_token must contain either json strings, or json objects",
                         null,
                     ),
@@ -258,7 +263,7 @@ class PostWalletResponseLive(
 
         val presentation = loadPresentation(requestId)
         ensure(presentation is RequestObjectRetrieved) {
-            WalletResponseValidationError.PresentationNotInExpectedState
+            PresentationNotInExpectedState
         }
         log.debug(presentation, walletResponse)
 
@@ -283,17 +288,26 @@ class PostWalletResponseLive(
         // Submit the response
         val submitted =
             doSubmit(presentation, responseObject).also { storePresentation(it) }
+
         val accepted =
-            when (val getWalletResponseMethod = presentation.getWalletResponseMethod) {
-                is GetWalletResponseMethod.Redirect -> {
-                    with(createQueryWalletResponseRedirectUri) {
-                        requireNotNull(submitted.responseCode) { "ResponseCode expected in Submitted state but not found" }
-                        val redirectUri = getWalletResponseMethod.redirectUri(submitted.responseCode)
-                        WalletResponseAcceptedTO(redirectUri.toString())
+            when (val channel = presentation.channel) {
+                is Channel.OverHttp -> {
+                    when (val getWalletResponseMethod = channel.getWalletResponseMethod) {
+                        is GetWalletResponseMethod.Redirect -> {
+                            with(createQueryWalletResponseRedirectUri) {
+                                requireNotNull(submitted.responseCode) { "ResponseCode expected in Submitted state but not found" }
+                                val redirectUri = getWalletResponseMethod.redirectUri(submitted.responseCode)
+                                WalletResponseAcceptedTO(redirectUri.toString())
+                            }
+                        }
+
+                        GetWalletResponseMethod.Poll -> {
+                            null
+                        }
                     }
                 }
 
-                GetWalletResponseMethod.Poll -> {
+                is Channel.OverDcApi -> {
                     null
                 }
             }
@@ -303,7 +317,7 @@ class PostWalletResponseLive(
     context(_: Raise<WalletResponseValidationError>)
     private suspend fun loadPresentation(requestId: RequestId): Presentation {
         val presentation = loadPresentationByRequestId(requestId)
-        return ensureNotNull(presentation) { WalletResponseValidationError.PresentationNotFound }
+        return ensureNotNull(presentation) { PresentationNotFound }
     }
 
     context(_: Raise<WalletResponseValidationError>)
@@ -311,37 +325,77 @@ class PostWalletResponseLive(
         walletResponse: AuthorisationResponse,
         presentation: RequestObjectRetrieved,
     ): AuthorisationResponseTO =
-        when (val responseMode = presentation.responseMode) {
-            ResponseMode.DirectPost -> {
-                ensure(walletResponse is AuthorisationResponse.DirectPost) {
-                    WalletResponseValidationError.UnexpectedResponseMode(
-                        presentation.requestId,
-                        expected = ResponseModeOption.DirectPost,
-                        actual = ResponseModeOption.DirectPostJwt,
-                    )
-                }
-                walletResponse.response
-            }
-
-            is ResponseMode.DirectPostJwt -> {
-                when (walletResponse) {
-                    is AuthorisationResponse.DirectPost -> {
-                        ensure(walletResponse.isErrorResponse()) {
-                            WalletResponseValidationError.UnexpectedResponseMode(
-                                presentation.requestId,
-                                expected = ResponseModeOption.DirectPostJwt,
-                                actual = ResponseModeOption.DirectPost,
+        when (val channel = presentation.channel) {
+            is Channel.OverHttp -> {
+                when (val responseMode = channel.responseMode) {
+                    ResponseMode.OverHttp.DirectPost -> {
+                        ensure(walletResponse is AuthorisationResponse.DirectPost) {
+                            UnexpectedResponseMode(
+                                presentation.channel.requestId,
+                                expected = ResponseModeOption.DirectPost,
+                                actual = walletResponse.responseModeOption,
                             )
                         }
                         walletResponse.response
                     }
 
-                    is AuthorisationResponse.DirectPostJwt -> {
-                        verifyEncryptedResponse(
-                            ephemeralResponseEncryptionKey = responseMode.ephemeralResponseEncryptionKey,
-                            encryptedResponse = walletResponse.encryptedResponse,
-                            apv = presentation.nonce,
-                        )
+                    is ResponseMode.OverHttp.DirectPostJwt -> {
+                        when (walletResponse) {
+                            is AuthorisationResponse.DirectPost -> {
+                                ensure(walletResponse.isErrorResponse()) {
+                                    UnexpectedResponseMode(
+                                        presentation.channel.requestId,
+                                        expected = ResponseModeOption.DirectPostJwt,
+                                        actual = ResponseModeOption.DirectPost,
+                                    )
+                                }
+                                walletResponse.response
+                            }
+
+                            is AuthorisationResponse.DirectPostJwt -> {
+                                verifyEncryptedResponse(
+                                    ephemeralResponseEncryptionKey = responseMode.ephemeralResponseEncryptionKey,
+                                    encryptedResponse = walletResponse.encryptedResponse,
+                                    apv = presentation.nonce,
+                                )
+                            }
+
+                            else -> {
+                                raise(
+                                    UnexpectedResponseMode(
+                                        presentation.channel.requestId,
+                                        expected = ResponseModeOption.DirectPostJwt,
+                                        actual = walletResponse.responseModeOption,
+                                    ),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            is Channel.OverDcApi -> {
+                when (val responseMode = channel.responseMode) {
+                    is ResponseMode.OverDcApi.DcApiJwt -> {
+                        when (walletResponse) {
+                            is AuthorisationResponse.DcApiJwt -> {
+                                verifyEncryptedResponse(
+                                    ephemeralResponseEncryptionKey = responseMode.ephemeralResponseEncryptionKey,
+                                    encryptedResponse = walletResponse.encryptedResponse,
+                                    apv = presentation.nonce,
+                                )
+                            }
+
+                            else -> {
+                                raise(
+                                    UnexpectedResponseMode(
+                                        null,
+                                        expected = ResponseModeOption.DcApiJwt,
+                                        actual = walletResponse.responseModeOption,
+                                    ),
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -352,9 +406,6 @@ class PostWalletResponseLive(
         presentation: RequestObjectRetrieved,
         responseObject: AuthorisationResponseTO,
     ): Submitted {
-        // Verify response `state` is RequestId
-        ensure(presentation.requestId.value == responseObject.state) { WalletResponseValidationError.IncorrectState }
-
         // add the wallet response to the presentation
         val walletResponse =
             responseObject.toDomain(
@@ -364,10 +415,21 @@ class PostWalletResponseLive(
             )
 
         val responseCode =
-            when (presentation.getWalletResponseMethod) {
-                GetWalletResponseMethod.Poll -> null
-                is GetWalletResponseMethod.Redirect -> generateResponseCode()
+            when (val channel = presentation.channel) {
+                is Channel.OverDcApi -> {
+                    null
+                }
+
+                is Channel.OverHttp -> {
+                    // Verify response `state` is RequestId
+                    ensure(presentation.channel.requestId.value == responseObject.state) { IncorrectState }
+                    when (channel.getWalletResponseMethod) {
+                        GetWalletResponseMethod.Poll -> null
+                        is GetWalletResponseMethod.Redirect -> generateResponseCode()
+                    }
+                }
             }
+
         return either { presentation.submit(clock, walletResponse, responseCode) }
             .mapLeft { IllegalArgumentException(it) }
             .getOrThrow()
@@ -406,11 +468,19 @@ private fun DCQL.satisfiedBy(response: Map<QueryId, List<VerifiablePresentation>
         ?.fold(true, Boolean::and)
         ?: response.keys.containsAll(credentials.ids)
 
+private val AuthorisationResponse.responseModeOption: ResponseModeOption
+    get() =
+        when (this) {
+            is AuthorisationResponse.DirectPost -> ResponseModeOption.DirectPost
+            is AuthorisationResponse.DirectPostJwt -> ResponseModeOption.DirectPostJwt
+            is AuthorisationResponse.DcApiJwt -> ResponseModeOption.DcApiJwt
+        }
 private val AuthorisationResponse.encryptedResponseOrNull: Jwt?
     get() =
         when (this) {
             is AuthorisationResponse.DirectPost -> null
             is AuthorisationResponse.DirectPostJwt -> encryptedResponse
+            is AuthorisationResponse.DcApiJwt -> encryptedResponse
         }
 
 private val AuthorisationResponse.vpTokenOrNull: JsonObject?
@@ -418,13 +488,24 @@ private val AuthorisationResponse.vpTokenOrNull: JsonObject?
         when (this) {
             is AuthorisationResponse.DirectPost -> response.vpToken
             is AuthorisationResponse.DirectPostJwt -> null
+            is AuthorisationResponse.DcApiJwt -> null
         }
 
 private val RequestObjectRetrieved.ephemeralResponseEncryptionKeyOrNull: JWK?
     get() =
-        when (responseMode) {
-            ResponseMode.DirectPost -> null
-            is ResponseMode.DirectPostJwt -> responseMode.ephemeralResponseEncryptionKey
+        when (val channel = this.channel) {
+            is Channel.OverHttp -> {
+                when (val responseMode = channel.responseMode) {
+                    ResponseMode.OverHttp.DirectPost -> null
+                    is ResponseMode.OverHttp.DirectPostJwt -> responseMode.ephemeralResponseEncryptionKey
+                }
+            }
+
+            is Channel.OverDcApi -> {
+                when (val responseMode = channel.responseMode) {
+                    is ResponseMode.OverDcApi.DcApiJwt -> responseMode.ephemeralResponseEncryptionKey
+                }
+            }
         }
 
 private fun Logger.debug(

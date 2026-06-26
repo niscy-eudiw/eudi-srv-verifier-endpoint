@@ -47,6 +47,10 @@ internal class VerifierApi(
                 INIT_TRANSACTION_PATH_V2,
                 contentType(APPLICATION_JSON) and accept(APPLICATION_JSON, IMAGE_PNG),
             ) { request -> handleInitTransaction(request, VerifierApiVersion.V2) }
+            POST(
+                INIT_TRANSACTION_PATH_DC_API,
+                contentType(APPLICATION_JSON) and accept(APPLICATION_JSON),
+            ) { request -> handleInitDCApiTransaction(request) }
 
             GET(WALLET_RESPONSE_PATH, accept(APPLICATION_JSON), this@VerifierApi::handleGetWalletResponse)
             GET(EVENTS_RESPONSE_PATH, accept(APPLICATION_JSON), this@VerifierApi::handleGetPresentationEvents)
@@ -108,6 +112,30 @@ internal class VerifierApi(
             },
         )
 
+    private suspend fun handleInitDCApiTransaction(request: ServerRequest): ServerResponse =
+        effect {
+            val input = request.awaitBody<InitDcApiTransactionTO>()
+
+            logger.info("Handling InitDCApiTransaction nonce=${input.nonce} ... ")
+            initTransaction(input)
+        }.fold(
+            transform = {
+                ok()
+                    .header(TRANSACTION_ID_HEADER, it.transactionId)
+                    .json()
+                    .bodyValueAndAwait(it)
+            },
+            recover = { it.asBadRequest() },
+            catch = { t ->
+                if (t is SerializationException) {
+                    logger.warn("While handling InitDCApiTransaction", t)
+                    badRequest().buildAndAwait()
+                } else {
+                    throw t
+                }
+            },
+        )
+
     /**
      * Handles a request placed by verifier, input order to obtain
      * the wallet authorization response
@@ -146,6 +174,7 @@ internal class VerifierApi(
     companion object {
         const val INIT_TRANSACTION_PATH = "/ui/presentations"
         const val INIT_TRANSACTION_PATH_V2 = "/ui/presentations/v2"
+        const val INIT_TRANSACTION_PATH_DC_API = "/ui/presentations/dc-api"
         const val WALLET_RESPONSE_PATH = "/ui/presentations/{transactionId}"
         const val EVENTS_RESPONSE_PATH = "/ui/presentations/{transactionId}/events"
 
