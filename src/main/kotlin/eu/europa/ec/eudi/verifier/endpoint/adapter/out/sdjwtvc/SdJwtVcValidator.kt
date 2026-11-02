@@ -26,6 +26,7 @@ import com.nimbusds.jose.JOSEObjectType
 import com.nimbusds.jose.proc.BadJOSEException
 import com.nimbusds.jose.proc.DefaultJOSEObjectTypeVerifier
 import com.nimbusds.jose.proc.SecurityContext
+import com.nimbusds.jose.util.X509CertUtils
 import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.SignedJWT
 import com.nimbusds.jwt.proc.DefaultJWTClaimsVerifier
@@ -136,20 +137,82 @@ internal class SdJwtVcValidator(
     private val clock: Clock,
     private val skew: Duration,
     typeMetadataPolicy: TypeMetadataPolicy,
+    signatureVerifier: SignatureVerifier? = null,
+    private val jadesBbVcts: Set<String> = emptySet(),
 ) {
+    /**
+     * Decides, using the configured [isChainTrustedForAttestation], whether the given `x5c` certificate chain is
+     * trusted to issue an SD-JWT VC of the given `vct`. This is the same trust decision regardless of which
+     * [SignatureVerifier] is used to validate the cryptographic signature itself.
+     */
+    private suspend fun isTrustedIssuer(
+        x5c: NonEmptyList<X509Certificate>,
+        vct: String,
+    ): Boolean =
+        when (isChainTrustedForAttestation.sdJwtVcIssuance(x5c, vct)) {
+            is CertificationChainValidation.Trusted -> true
+            is CertificationChainValidation.NotTrusted -> false
+            null -> throw IllegalStateException("Could not find Attestation Classification for vct '$vct'")
+        }
+
+    private val jwsVerifier: SignatureVerifier = SignatureVerifier.jwsValidator()
+
+    /**
+     * A [JwtSignatureVerifier] that first decides, using the trust service, whether the `x5c` chain found in the
+     * JWT's header is trusted to issue an SD-JWT VC of the `vct` found in the JWT's claims; only if trusted does it
+     * verify the cryptographic signature of the JWT itself.
+     *
+     * The signature verification method is selected based on the `vct`
+     * - `vct` is in [jadesBbVcts], given [signatureVerifier] is used.
+     * - otherwise, a plain [jwsVerifier] is used.
+     *
+     */
+    private fun customJwtSignatureVerifier(signatureVerifier: SignatureVerifier): JwtSignatureVerifier<SignedJWT> =
+        JwtSignatureVerifier { jwt ->
+            val signedJwt = SignedJWT.parse(jwt)
+            val x5c =
+                checkNotNull(signedJwt.header.x509CertChain?.toNonEmptyListOrNull()) {
+                    "missing 'x5c' header claim"
+                }.map { X509CertUtils.parseWithException(it.decode()) }
+            val vct =
+                checkNotNull(signedJwt.jwtClaimsSet.getStringClaim(SdJwtVcSpec.VCT)) {
+                    "missing '${SdJwtVcSpec.VCT}' claim"
+                }
+
+            if (!isTrustedIssuer(x5c, vct)) {
+                throw VerificationError
+                    .SdJwtVcError(IssuerKeyVerificationError.UntrustedIssuerCertificate())
+                    .asException()
+            }
+
+            val verifier = if (vct in jadesBbVcts) signatureVerifier else jwsVerifier
+
+            when (val result = verifier(jwt, x5c, clock.now())) {
+                is SignatureVerificationResult.Passed -> {
+                    signedJwt
+                }
+
+                is SignatureVerificationResult.Failed -> {
+                    throw VerificationError.InvalidJwt(result.message, result.cause).asException()
+                }
+            }
+        }
+
     private val sdJwtVcVerifier: SdJwtVcVerifier<SignedJWT> =
         run {
-            val x509CertificateTrust =
-                X509CertificateTrust.usingVct { chain: List<X509Certificate>, vct ->
-                    val x5c = checkNotNull(chain.toNonEmptyListOrNull())
-                    when (isChainTrustedForAttestation.sdJwtVcIssuance(x5c, vct)) {
-                        is CertificationChainValidation.Trusted -> true
-                        is CertificationChainValidation.NotTrusted -> false
-                        null -> throw IllegalStateException("Could not find Attestation Classification for vct '$vct'")
-                    }
+            val issuerVerificationMethod =
+                if (null == signatureVerifier) {
+                    val x509CertificateTrust =
+                        X509CertificateTrust.usingVct { chain: List<X509Certificate>, vct ->
+                            val x5c = checkNotNull(chain.toNonEmptyListOrNull())
+                            isTrustedIssuer(x5c, vct)
+                        }
+                    IssuerVerificationMethod.usingX5c(x509CertificateTrust)
+                } else {
+                    IssuerVerificationMethod.usingCustom(customJwtSignatureVerifier(signatureVerifier))
                 }
             NimbusSdJwtOps.SdJwtVcVerifier(
-                issuerVerificationMethod = IssuerVerificationMethod.usingX5c(x509CertificateTrust),
+                issuerVerificationMethod = issuerVerificationMethod,
                 typeMetadataPolicy = typeMetadataPolicy,
                 checkStatus = null,
             )

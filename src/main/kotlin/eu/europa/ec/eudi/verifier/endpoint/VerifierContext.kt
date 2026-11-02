@@ -50,6 +50,7 @@ import eu.europa.ec.eudi.verifier.endpoint.adapter.out.presentation.ValidateSdJw
 import eu.europa.ec.eudi.verifier.endpoint.adapter.out.qrcode.GenerateQrCodeFromData
 import eu.europa.ec.eudi.verifier.endpoint.adapter.out.sdjwtvc.LookupTypeMetadataFromUrl
 import eu.europa.ec.eudi.verifier.endpoint.adapter.out.sdjwtvc.SdJwtVcValidator
+import eu.europa.ec.eudi.verifier.endpoint.adapter.out.sdjwtvc.SignatureVerifier
 import eu.europa.ec.eudi.verifier.endpoint.adapter.out.tokenstatuslist.StatusListTokenValidator
 import eu.europa.ec.eudi.verifier.endpoint.adapter.out.x509.ParsePemEncodedX509CertificatesWithNimbus
 import eu.europa.ec.eudi.verifier.endpoint.domain.*
@@ -518,7 +519,43 @@ private fun SupplierContextDsl<*>.sdJwtVcValidator(
         typeMetadataPolicy = bean<TypeMetadataPolicy>(),
         clock = bean(),
         skew = env.clockSkew(),
+        signatureVerifier = env.sdJwtVcSignatureVerifier(),
+        jadesBbVcts = env.sdJwtVcJadesBbVcts(),
     )
+}
+
+/**
+ * Builds the [SignatureVerifier] used to verify the signature of the Issuer-signed JWT of an SD-JWT VC, selected
+ * by `verifier.validation.sdJwtVc.signature-verifier.jades-bb`.
+ *
+ */
+private fun Environment.sdJwtVcSignatureVerifier(): SignatureVerifier {
+    val jadesBb = getProperty("verifier.validation.sdJwtVc.signature-verifier.jades-bb", Boolean::class.java, true)
+    return if (jadesBb) {
+        log.info("Using JAdES B-B (DSS) signature verifier for SD-JWT VC")
+        SignatureVerifier.jadesBBValidator()
+    } else {
+        log.info("Using plain JWS signature verifier for SD-JWT VC")
+        SignatureVerifier.jwsValidator()
+    }
+}
+
+/**
+ * Reads the list of vcts for which JAdES B-B signature verification should be applied, from
+ * `verifier.validation.sdJwtVc.signature-verifier.jades-bb.vcts`.
+ *
+ * Defaults to the PID vct (`urn:eudi:pid:1`) so that JAdES B-B is only applied to PID SD-JWT VCs.
+ */
+private fun Environment.sdJwtVcJadesBbVcts(): Set<String> {
+    val vcts = getProperty("verifier.validation.sdJwtVc.signature-verifier.jades-bb.vcts", String::class.java, "urn:eudi:pid:1")
+    val result =
+        vcts
+            .split(",")
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .toSet()
+    log.info("JAdES B-B signature verification will be applied to vcts: {}", result)
+    return result
 }
 
 private enum class EmbedOptionEnum {

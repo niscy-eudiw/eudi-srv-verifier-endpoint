@@ -826,6 +826,19 @@ Variable: `VERIFIER_VALIDATION_SDJWTVC_KBJWT_CLOCK_SKEW`
 Description: Clock skew duration to be used when validating claim `iat` in Key Binding JWT of an SD-JWT VC, using duration notation    
 Default value: `PT5S`  
 
+#### SD-JWT-VC Issuer Signature Verification
+
+Verifier verifies the signature of the Issuer-signed JWT of an SD-JWT VC. The verification profile is selected
+with the following environment variable:
+
+Variable: `VERIFIER_VALIDATION_SDJWTVC_SIGNATUREVERIFIER_JADESBB`  
+Description: When `true`, the JAdES B-B (DSS) verifier is used to validate the SD-JWT VC Issuer-signed JWT signature. When `false`, a plain JWS verifier is used.  
+Default value: `true`  
+
+Variable: `VERIFIER_VALIDATION_SDJWTVC_SIGNATUREVERIFIER_JADESBB_VCTS`  
+Description: Comma separated list of VCTs for which the JAdES B-B (DSS) verifier is applied. All other VCTs use a plain JWS verifier. Only relevant when `VERIFIER_VALIDATION_SDJWTVC_SIGNATUREVERIFIER_JADESBB` is `true`.  
+Default value: `urn:eudi:pid:1`  
+
 #### SD-JWT-VC Type Metadata resolution
 
 Required when `VERIFIER_VALIDATION_SDJWTVC_TYPEMETADATA_POLICY` is not set to `not_used`  
