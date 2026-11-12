@@ -17,8 +17,8 @@ package eu.europa.ec.eudi.verifier.endpoint.adapter.out.persistence
 
 import arrow.core.NonEmptyList
 import arrow.core.nonEmptyListOf
-import eu.europa.ec.eudi.verifier.endpoint.domain.Channel
 import eu.europa.ec.eudi.verifier.endpoint.domain.Presentation
+import eu.europa.ec.eudi.verifier.endpoint.domain.PresentationType
 import eu.europa.ec.eudi.verifier.endpoint.domain.RequestId
 import eu.europa.ec.eudi.verifier.endpoint.domain.TransactionId
 import eu.europa.ec.eudi.verifier.endpoint.domain.isExpired
@@ -43,9 +43,9 @@ class PresentationInMemoryRepo(
 
     val loadPresentationByRequestId: LoadPresentationByRequestId by lazy {
         fun requestId(p: Presentation): RequestId? {
-            val channel = p.channel
-            if (p is Presentation.TimedOut || channel !is Channel.OverHttp) return null
-            return channel.requestId
+            val presentationType = p.presentationType
+            if (p is Presentation.TimedOut || presentationType !is PresentationType.OpenId4VP.OverRedirects) return null
+            return presentationType.requestId
         }
 
         LoadPresentationByRequestId { requestId ->

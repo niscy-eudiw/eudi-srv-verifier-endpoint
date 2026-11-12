@@ -15,35 +15,35 @@
  */
 package eu.europa.ec.eudi.verifier.endpoint.port.input
 
-import eu.europa.ec.eudi.verifier.endpoint.domain.Channel
 import eu.europa.ec.eudi.verifier.endpoint.domain.Presentation
+import eu.europa.ec.eudi.verifier.endpoint.domain.PresentationType
 import eu.europa.ec.eudi.verifier.endpoint.domain.TransactionId
 import eu.europa.ec.eudi.verifier.endpoint.port.out.persistence.LoadPresentationById
 import eu.europa.ec.eudi.verifier.endpoint.port.out.persistence.LoadPresentationEvents
 import eu.europa.ec.eudi.verifier.endpoint.port.out.persistence.PresentationEvent
 
 fun interface RetrieveDcApiPresentationRequest {
-    suspend operator fun invoke(transactionId: TransactionId): QueryResponse<InitDcApiTransactionResponseTO>
+    suspend operator fun invoke(transactionId: TransactionId): QueryResponse<InitOpenId4VPOverDCApiTransactionResponseTO>
 }
 
 class RetrieveDcApiPresentationRequestLive(
     private val loadPresentationById: LoadPresentationById,
     private val loadPresentationEvents: LoadPresentationEvents,
 ) : RetrieveDcApiPresentationRequest {
-    override suspend fun invoke(transactionId: TransactionId): QueryResponse<InitDcApiTransactionResponseTO> {
+    override suspend fun invoke(transactionId: TransactionId): QueryResponse<InitOpenId4VPOverDCApiTransactionResponseTO> {
         val presentationById = loadPresentationById(transactionId) ?: return QueryResponse.NotFound
 
         if (presentationById !is Presentation.RequestObjectRetrieved)
             return QueryResponse.InvalidState(
                 InvalidStateError.PresentationNotSubmitted,
             )
-        require(presentationById.channel is Channel.OverDcApi)
+        require(presentationById.presentationType is PresentationType.OpenId4VP.OverDCApi)
 
         val events = loadPresentationEvents(transactionId)
         checkNotNull(events)
 
         val dcApiEvent = events.filterIsInstance<PresentationEvent.DcApiTransactionInitialized>().first()
 
-        return QueryResponse.Found(InitDcApiTransactionResponseTO(dcApiEvent.response, transactionId.value))
+        return QueryResponse.Found(InitOpenId4VPOverDCApiTransactionResponseTO(dcApiEvent.response, transactionId.value))
     }
 }

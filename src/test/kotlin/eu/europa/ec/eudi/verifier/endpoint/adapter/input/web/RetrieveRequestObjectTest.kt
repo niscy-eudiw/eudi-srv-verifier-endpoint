@@ -17,7 +17,7 @@ package eu.europa.ec.eudi.verifier.endpoint.adapter.input.web
 
 import eu.europa.ec.eudi.verifier.endpoint.VerifierApplicationTest
 import eu.europa.ec.eudi.verifier.endpoint.port.input.EmbedModeTO
-import eu.europa.ec.eudi.verifier.endpoint.port.input.InitTransactionResponse
+import eu.europa.ec.eudi.verifier.endpoint.port.input.InitOpenId4VPOverRedirectsTransactionResponse
 import eu.europa.ec.eudi.verifier.endpoint.port.input.RequestUriMethodTO
 import eu.europa.ec.eudi.verifier.endpoint.port.input.RetrieveRequestObjectMethod
 import kotlinx.coroutines.test.runTest
@@ -61,7 +61,7 @@ internal class RetrieveRequestObjectTest {
                     .loadInitTransactionTO("02-dcql.json")
                     .copy(jarMode = EmbedModeTO.ByReference, requestUriMethod = RequestUriMethodTO.Post)
             val transactionInitialized =
-                assertIs<InitTransactionResponse.JwtSecuredAuthorizationRequestTO>(
+                assertIs<InitOpenId4VPOverRedirectsTransactionResponse.JwtSecuredAuthorizationRequestTO>(
                     VerifierApiClient.initTransaction(client, initTransaction),
                 )
 
@@ -86,7 +86,7 @@ internal class RetrieveRequestObjectTest {
                     .loadInitTransactionTO("02-dcql.json")
                     .copy(jarMode = EmbedModeTO.ByReference, requestUriMethod = RequestUriMethodTO.Get)
             val transactionInitialized =
-                assertIs<InitTransactionResponse.JwtSecuredAuthorizationRequestTO>(
+                assertIs<InitOpenId4VPOverRedirectsTransactionResponse.JwtSecuredAuthorizationRequestTO>(
                     VerifierApiClient.initTransaction(client, initTransaction),
                 )
 

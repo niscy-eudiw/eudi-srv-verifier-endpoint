@@ -17,7 +17,7 @@ package eu.europa.ec.eudi.verifier.endpoint.adapter.input.web
 
 import eu.europa.ec.eudi.verifier.endpoint.VerifierApplicationTest
 import eu.europa.ec.eudi.verifier.endpoint.domain.RequestId
-import eu.europa.ec.eudi.verifier.endpoint.port.input.InitTransactionResponse
+import eu.europa.ec.eudi.verifier.endpoint.port.input.InitOpenId4VPOverRedirectsTransactionResponse
 import eu.europa.ec.eudi.verifier.endpoint.port.out.cfg.CreateQueryWalletResponseRedirectUri
 import kotlinx.coroutines.test.runTest
 import org.springframework.beans.factory.annotation.Autowired
@@ -50,7 +50,7 @@ internal class GetWalletResponseErrorsTest {
     fun `when the wallet has not submitted yet, the error is PresentationNotSubmitted`() =
         runTest {
             val transactionDetails =
-                assertIs<InitTransactionResponse.JwtSecuredAuthorizationRequestTO>(
+                assertIs<InitOpenId4VPOverRedirectsTransactionResponse.JwtSecuredAuthorizationRequestTO>(
                     VerifierApiClient.initTransaction(client, VerifierApiClient.loadInitTransactionTO("02-dcql.json")),
                 )
 
@@ -74,7 +74,7 @@ internal class GetWalletResponseErrorsTest {
                                 CreateQueryWalletResponseRedirectUri.RESPONSE_CODE_PLACE_HOLDER,
                     )
             val transactionDetails =
-                assertIs<InitTransactionResponse.JwtSecuredAuthorizationRequestTO>(
+                assertIs<InitOpenId4VPOverRedirectsTransactionResponse.JwtSecuredAuthorizationRequestTO>(
                     VerifierApiClient.initTransaction(client, initTransaction),
                 )
             WalletApiClient.retrieveRequestObjectResponse(client, transactionDetails.requestUri!!)

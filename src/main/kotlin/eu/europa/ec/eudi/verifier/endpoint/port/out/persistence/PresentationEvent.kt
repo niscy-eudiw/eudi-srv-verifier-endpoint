@@ -30,7 +30,7 @@ sealed interface PresentationEvent {
     data class TransactionInitialized(
         override val transactionId: TransactionId,
         override val timestamp: Instant,
-        val response: InitTransactionResponse.JwtSecuredAuthorizationRequestTO,
+        val response: InitOpenId4VPOverRedirectsTransactionResponse.JwtSecuredAuthorizationRequestTO,
         val profile: Profile,
     ) : PresentationEvent
 

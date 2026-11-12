@@ -64,7 +64,7 @@ class InitTransactionTest {
     fun `when request option is embed by value, request should be present and presentation should be RequestObjectRetrieved`() =
         runTest {
             val input =
-                InitTransactionTO(
+                InitOpenId4VPOverRedirectsTransactionTO(
                     dcqlQuery(),
                     "nonce",
                     intendedUseId = "1",
@@ -77,7 +77,7 @@ class InitTransactionTest {
                 )
 
             val jwtSecuredAuthorizationRequest =
-                assertIs<InitTransactionResponse.JwtSecuredAuthorizationRequestTO>(
+                assertIs<InitOpenId4VPOverRedirectsTransactionResponse.JwtSecuredAuthorizationRequestTO>(
                     either { useCase(input) }.getOrElse { fail("Unexpected $it") },
                 )
             assertEquals(jwtSecuredAuthorizationRequest.clientId, verifierConfig.verifierId.clientId)
@@ -114,7 +114,7 @@ class InitTransactionTest {
                 )
 
             val input =
-                InitTransactionTO(
+                InitOpenId4VPOverRedirectsTransactionTO(
                     dcqlQuery(),
                     nonce = "nonce",
                     intendedUseId = "1",
@@ -127,7 +127,7 @@ class InitTransactionTest {
                 )
 
             val jwtSecuredAuthorizationRequest =
-                assertIs<InitTransactionResponse.JwtSecuredAuthorizationRequestTO>(
+                assertIs<InitOpenId4VPOverRedirectsTransactionResponse.JwtSecuredAuthorizationRequestTO>(
                     either { useCase(input) }.getOrElse { fail("Unexpected $it") },
                 )
             assertEquals(jwtSecuredAuthorizationRequest.clientId, verifierConfig.verifierId.clientId)
@@ -143,7 +143,7 @@ class InitTransactionTest {
             // Input is invalid.
             //  Misses DCQL
             val input =
-                InitTransactionTO(
+                InitOpenId4VPOverRedirectsTransactionTO(
                     dcqlQuery = null,
                     nonce = "nonce",
                     intendedUseId = "1",
@@ -156,7 +156,7 @@ class InitTransactionTest {
         runTest {
             // Input is invalid.
             val input =
-                InitTransactionTO(
+                InitOpenId4VPOverRedirectsTransactionTO(
                     dcqlQuery(),
                     nonce = null,
                     intendedUseId = "1",
@@ -165,16 +165,16 @@ class InitTransactionTest {
         }
 
     /**
-     * Verifies [InitTransactionTO.responseMode] takes precedence over [VerifierConfig.defaultHttpResponseModeOption].
+     * Verifies [InitOpenId4VPOverRedirectsTransactionTO.responseMode] takes precedence over [VerifierConfig.defaultHttpResponseModeOption].
      */
     @Test
     fun `when response_mode is provided this must take precedence over what is configured in VerifierConfig`() =
         runTest {
             val input =
-                InitTransactionTO(
+                InitOpenId4VPOverRedirectsTransactionTO(
                     dcqlQuery(),
                     nonce = "nonce",
-                    responseMode = InitTransactionTO.ResponseModeTO.DirectPost,
+                    responseMode = InitOpenId4VPOverRedirectsTransactionTO.ResponseModeTO.DirectPost,
                     intendedUseId = "1",
                 )
 
@@ -185,24 +185,24 @@ class InitTransactionTest {
                 )
 
             val jwtSecuredAuthorizationRequest =
-                assertIs<InitTransactionResponse.JwtSecuredAuthorizationRequestTO>(
+                assertIs<InitOpenId4VPOverRedirectsTransactionResponse.JwtSecuredAuthorizationRequestTO>(
                     either { useCase(input) }.getOrElse { fail("Unexpected $it") },
                 )
             assertEquals(jwtSecuredAuthorizationRequest.clientId, verifierConfig.verifierId.clientId)
             assertNotNull(jwtSecuredAuthorizationRequest.request)
             val presentation = loadPresentationById(testTransactionId)
             val requestObjectRetrieved = assertIs<Presentation.RequestObjectRetrieved>(presentation)
-            assertEquals(ResponseModeType.DirectPost, requestObjectRetrieved.channel.responseMode.type)
+            assertEquals(ResponseModeType.DirectPost, requestObjectRetrieved.presentationType.responseMode.type)
         }
 
     /**
-     * Verifies [InitTransactionTO.jarMode] takes precedence over [VerifierConfig.requestJarOption].
+     * Verifies [InitOpenId4VPOverRedirectsTransactionTO.jarMode] takes precedence over [VerifierConfig.requestJarOption].
      */
     @Test
     fun `when jar_mode is provided this must take precedence over what is configured in VerifierConfig`() =
         runTest {
             val input =
-                InitTransactionTO(
+                InitOpenId4VPOverRedirectsTransactionTO(
                     dcqlQuery = dcqlQuery(),
                     nonce = "nonce",
                     jarMode = EmbedModeTO.ByReference,
@@ -218,7 +218,7 @@ class InitTransactionTest {
             // we expect the Authorization Request to contain a request_uri
             // and the Presentation to be in state Requested
             val jwtSecuredAuthorizationRequest =
-                assertIs<InitTransactionResponse.JwtSecuredAuthorizationRequestTO>(
+                assertIs<InitOpenId4VPOverRedirectsTransactionResponse.JwtSecuredAuthorizationRequestTO>(
                     either { useCase(input) }.getOrElse { fail("Unexpected $it") },
                 )
             assertEquals(jwtSecuredAuthorizationRequest.clientId, verifierConfig.verifierId.clientId)
@@ -238,7 +238,7 @@ class InitTransactionTest {
                 )
 
             val invalidPlaceHolderInput =
-                InitTransactionTO(
+                InitOpenId4VPOverRedirectsTransactionTO(
                     dcqlQuery = dcqlQuery(),
                     "nonce",
                     redirectUriTemplate = "https://client.example.org/cb#response_code=#CODE#",
@@ -255,7 +255,7 @@ class InitTransactionTest {
                 }
 
             val invalidUrlInput =
-                InitTransactionTO(
+                InitOpenId4VPOverRedirectsTransactionTO(
                     dcqlQuery = dcqlQuery(),
                     "nonce",
                     redirectUriTemplate =
@@ -277,7 +277,7 @@ class InitTransactionTest {
     fun `when wallet_response_redirect_uri_template is valid, then get wallet response method should be REDIRECT`() =
         runTest {
             val input =
-                InitTransactionTO(
+                InitOpenId4VPOverRedirectsTransactionTO(
                     dcqlQuery(),
                     "nonce",
                     redirectUriTemplate =
@@ -291,20 +291,20 @@ class InitTransactionTest {
                     EmbedOption.byReference { _ -> uri },
                 )
 
-            assertIs<InitTransactionResponse.JwtSecuredAuthorizationRequestTO>(
+            assertIs<InitOpenId4VPOverRedirectsTransactionResponse.JwtSecuredAuthorizationRequestTO>(
                 either { useCase(input) }.getOrElse { fail("Unexpected $it") },
             )
             val presentation = loadPresentationById(testTransactionId)
             assertIs<Presentation.RequestObjectRetrieved>(presentation)
-            assertIs<Channel.OverHttp>(presentation.channel)
-            assertIs<GetWalletResponseMethod.Redirect>(presentation.channel.getWalletResponseMethod)
+            assertIs<PresentationType.OpenId4VP.OverRedirects>(presentation.presentationType)
+            assertIs<GetWalletResponseMethod.Redirect>(presentation.presentationType.getWalletResponseMethod)
         }
 
     @Test
     fun `when wallet_response_redirect_uri_template is not passed, then get wallet response method should be POLL`() =
         runTest {
             val input =
-                InitTransactionTO(
+                InitOpenId4VPOverRedirectsTransactionTO(
                     dcqlQuery(),
                     "nonce",
                     intendedUseId = "1",
@@ -316,13 +316,13 @@ class InitTransactionTest {
                     EmbedOption.byReference { _ -> uri },
                 )
 
-            assertIs<InitTransactionResponse.JwtSecuredAuthorizationRequestTO>(
+            assertIs<InitOpenId4VPOverRedirectsTransactionResponse.JwtSecuredAuthorizationRequestTO>(
                 either { useCase(input) }.getOrElse { fail("Unexpected $it") },
             )
             val presentation = loadPresentationById(testTransactionId)
             assertIs<Presentation.RequestObjectRetrieved>(presentation)
-            assertIs<Channel.OverHttp>(presentation.channel)
-            assertIs<GetWalletResponseMethod.Poll>(presentation.channel.getWalletResponseMethod)
+            assertIs<PresentationType.OpenId4VP.OverRedirects>(presentation.presentationType)
+            assertIs<GetWalletResponseMethod.Poll>(presentation.presentationType.getWalletResponseMethod)
         }
 
     @Test
@@ -419,7 +419,9 @@ class InitTransactionTest {
 
                 val result = either { useCase(input) }
                 val response =
-                    assertNotNull(assertIs<InitTransactionResponse.JwtSecuredAuthorizationRequestTO>(result.getOrNull()))
+                    assertNotNull(
+                        assertIs<InitOpenId4VPOverRedirectsTransactionResponse.JwtSecuredAuthorizationRequestTO>(result.getOrNull()),
+                    )
                 val jar =
                     assertNotNull(response.request).let {
                         SignedJWT.parse(it).jwtClaimsSet
@@ -449,7 +451,7 @@ class InitTransactionTest {
         }
 
     private fun testWithInvalidInput(
-        input: InitTransactionTO,
+        input: InitOpenId4VPOverRedirectsTransactionTO,
         expectedError: ValidationError,
     ) = either {
         context(verifierConfig.transactionDataHashAlgorithm, verifierConfig.clientMetaData.vpFormatsSupported) {

@@ -18,10 +18,10 @@ package eu.europa.ec.eudi.verifier.endpoint.adapter.input.web
 import eu.europa.ec.eudi.verifier.endpoint.adapter.input.web.VerifierApi.Companion.TRANSACTION_ID_HEADER
 import eu.europa.ec.eudi.verifier.endpoint.domain.ResponseCode
 import eu.europa.ec.eudi.verifier.endpoint.domain.TransactionId
-import eu.europa.ec.eudi.verifier.endpoint.port.input.InitDcApiTransactionResponseTO
-import eu.europa.ec.eudi.verifier.endpoint.port.input.InitDcApiTransactionTO
-import eu.europa.ec.eudi.verifier.endpoint.port.input.InitTransactionResponse
-import eu.europa.ec.eudi.verifier.endpoint.port.input.InitTransactionTO
+import eu.europa.ec.eudi.verifier.endpoint.port.input.InitOpenId4VPOverDCApiTransactionResponseTO
+import eu.europa.ec.eudi.verifier.endpoint.port.input.InitOpenId4VPOverDCApiTransactionTO
+import eu.europa.ec.eudi.verifier.endpoint.port.input.InitOpenId4VPOverRedirectsTransactionResponse
+import eu.europa.ec.eudi.verifier.endpoint.port.input.InitOpenId4VPOverRedirectsTransactionTO
 import eu.europa.ec.eudi.verifier.endpoint.port.input.Output
 import eu.europa.ec.eudi.verifier.endpoint.port.input.WalletResponseTO
 import kotlinx.serialization.json.Json
@@ -37,22 +37,23 @@ import org.springframework.test.web.reactive.server.expectBody
 object VerifierApiClient {
     private val log: Logger = LoggerFactory.getLogger(VerifierApiClient::class.java)
 
-    fun loadInitTransactionTO(testResource: String): InitTransactionTO = Json.decodeFromString(TestUtils.loadResource(testResource))
+    fun loadInitTransactionTO(testResource: String): InitOpenId4VPOverRedirectsTransactionTO =
+        Json.decodeFromString(TestUtils.loadResource(testResource))
 
-    fun loadInitDCApiTransactionTO(testResource: String): InitDcApiTransactionTO =
+    fun loadInitDCApiTransactionTO(testResource: String): InitOpenId4VPOverDCApiTransactionTO =
         Json.decodeFromString(TestUtils.loadResource(testResource))
 
     /**
      * Initializes a Digital Credentials API (DC API) Transaction.
      *
-     * Posts an [InitDcApiTransactionTO] to [VerifierApi.INIT_TRANSACTION_PATH_DC_API] and returns
-     * the raw response body parsed as a [InitDcApiTransactionResponseTO] together with the value of the
+     * Posts an [InitOpenId4VPOverDCApiTransactionTO] to [VerifierApi.INIT_TRANSACTION_PATH_DC_API] and returns
+     * the raw response body parsed as a [InitOpenId4VPOverDCApiTransactionResponseTO] together with the value of the
      * [TRANSACTION_ID_HEADER] response header.
      */
     fun initDCApiTransaction(
         client: WebTestClient,
-        initDCApiTransactionTO: InitDcApiTransactionTO,
-    ): Pair<InitDcApiTransactionResponseTO, String> {
+        initDCApiTransactionTO: InitOpenId4VPOverDCApiTransactionTO,
+    ): Pair<InitOpenId4VPOverDCApiTransactionResponseTO, String> {
         val result =
             client
                 .post()
@@ -63,7 +64,7 @@ object VerifierApiClient {
                 .exchange()
                 .expectStatus()
                 .isOk()
-                .expectBody<InitDcApiTransactionResponseTO>()
+                .expectBody<InitOpenId4VPOverDCApiTransactionResponseTO>()
                 .returnResult()
 
         val transactionId = checkNotNull(result.responseHeaders.getFirst(TRANSACTION_ID_HEADER))
@@ -74,9 +75,9 @@ object VerifierApiClient {
 
     fun initTransaction(
         client: WebTestClient,
-        initTransactionTO: InitTransactionTO,
+        initTransactionTO: InitOpenId4VPOverRedirectsTransactionTO,
         output: Output = Output.Json,
-    ): InitTransactionResponse {
+    ): InitOpenId4VPOverRedirectsTransactionResponse {
         val accept =
             when (output) {
                 Output.Json -> MediaType.APPLICATION_JSON
@@ -97,7 +98,7 @@ object VerifierApiClient {
                 responseSpec
                     .expectStatus()
                     .isOk()
-                    .expectBody<InitTransactionResponse.JwtSecuredAuthorizationRequestTO>()
+                    .expectBody<InitOpenId4VPOverRedirectsTransactionResponse.JwtSecuredAuthorizationRequestTO>()
                     .returnResult()
                     .responseBody!!
             }
@@ -114,7 +115,7 @@ object VerifierApiClient {
                 val transactionId = checkNotNull(response.responseHeaders.getFirst(TRANSACTION_ID_HEADER))
                 val authorizationRequestUri = checkNotNull(response.responseHeaders.getFirst(VerifierApi.AUTHORIZATION_REQUEST_URI_HEADER))
 
-                InitTransactionResponse.QrCode(qrCode, transactionId, authorizationRequestUri)
+                InitOpenId4VPOverRedirectsTransactionResponse.QrCode(qrCode, transactionId, authorizationRequestUri)
             }
         }
     }

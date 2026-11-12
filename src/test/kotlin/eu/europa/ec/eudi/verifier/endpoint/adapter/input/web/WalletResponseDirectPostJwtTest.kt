@@ -29,8 +29,8 @@ import eu.europa.ec.eudi.verifier.endpoint.domain.Clock
 import eu.europa.ec.eudi.verifier.endpoint.domain.RequestId
 import eu.europa.ec.eudi.verifier.endpoint.domain.TransactionId
 import eu.europa.ec.eudi.verifier.endpoint.domain.VerifierConfig
-import eu.europa.ec.eudi.verifier.endpoint.port.input.InitTransactionResponse
-import eu.europa.ec.eudi.verifier.endpoint.port.input.InitTransactionTO
+import eu.europa.ec.eudi.verifier.endpoint.port.input.InitOpenId4VPOverRedirectsTransactionResponse
+import eu.europa.ec.eudi.verifier.endpoint.port.input.InitOpenId4VPOverRedirectsTransactionTO
 import eu.europa.ec.eudi.verifier.endpoint.port.input.WalletResponseTO
 import eu.europa.ec.eudi.verifier.endpoint.port.out.cfg.GenerateRequestId
 import eu.europa.ec.eudi.verifier.endpoint.port.out.jose.GenerateEphemeralEncryptionKeyPair
@@ -111,7 +111,7 @@ internal class WalletResponseDirectPostJwtValidationsDisabledTest {
                 // given
                 val initTransaction = VerifierApiClient.loadInitTransactionTO(query)
                 val transactionInitialized =
-                    assertIs<InitTransactionResponse.JwtSecuredAuthorizationRequestTO>(
+                    assertIs<InitOpenId4VPOverRedirectsTransactionResponse.JwtSecuredAuthorizationRequestTO>(
                         VerifierApiClient.initTransaction(client, initTransaction),
                     )
                 val requestId =
@@ -208,9 +208,9 @@ internal class WalletResponseDirectPostJwtValidationsDisabledTest {
                 VerifierApiClient
                     .loadInitTransactionTO(
                         "02-dcql.json",
-                    ).copy(responseMode = InitTransactionTO.ResponseModeTO.DirectPostJwt)
+                    ).copy(responseMode = InitOpenId4VPOverRedirectsTransactionTO.ResponseModeTO.DirectPostJwt)
             val transactionInitialized =
-                assertIs<InitTransactionResponse.JwtSecuredAuthorizationRequestTO>(
+                assertIs<InitOpenId4VPOverRedirectsTransactionResponse.JwtSecuredAuthorizationRequestTO>(
                     VerifierApiClient.initTransaction(
                         client,
                         initTransaction,
@@ -269,7 +269,7 @@ internal class WalletResponseDirectPostJwtValidationsEnabledTest {
             val initTransaction = VerifierApiClient.loadInitTransactionTO("06-pidPlusMdl-dcql.json")
 
             val transactionDetails =
-                assertIs<InitTransactionResponse.JwtSecuredAuthorizationRequestTO>(
+                assertIs<InitOpenId4VPOverRedirectsTransactionResponse.JwtSecuredAuthorizationRequestTO>(
                     VerifierApiClient.initTransaction(client, initTransaction),
                 )
             WalletApiClient.retrieveRequestObjectResponse(client, transactionDetails.requestUri!!)
@@ -424,21 +424,22 @@ internal class SdJwtVcStatusListValidationTest {
             )
         }
 
-    private fun initTransaction(): Pair<InitTransactionTO, InitTransactionResponse.JwtSecuredAuthorizationRequestTO> {
+    private fun initTransaction():
+        Pair<InitOpenId4VPOverRedirectsTransactionTO, InitOpenId4VPOverRedirectsTransactionResponse.JwtSecuredAuthorizationRequestTO> {
         val initTransaction = VerifierApiClient.loadInitTransactionTO("08-invalidStatusList-dcql.json")
         val transactionDetails =
-            assertIs<InitTransactionResponse.JwtSecuredAuthorizationRequestTO>(
+            assertIs<InitOpenId4VPOverRedirectsTransactionResponse.JwtSecuredAuthorizationRequestTO>(
                 VerifierApiClient.initTransaction(client, initTransaction),
             )
         return initTransaction to transactionDetails
     }
 
-    private fun requestId(transactionDetails: InitTransactionResponse.JwtSecuredAuthorizationRequestTO): RequestId =
+    private fun requestId(transactionDetails: InitOpenId4VPOverRedirectsTransactionResponse.JwtSecuredAuthorizationRequestTO): RequestId =
         RequestId(assertNotNull(transactionDetails.requestUri).removePrefix("http://localhost:0/wallet/request.jwt/"))
 
     private fun walletResponse(
-        initTransaction: InitTransactionTO,
-        transactionDetails: InitTransactionResponse.JwtSecuredAuthorizationRequestTO,
+        initTransaction: InitOpenId4VPOverRedirectsTransactionTO,
+        transactionDetails: InitOpenId4VPOverRedirectsTransactionResponse.JwtSecuredAuthorizationRequestTO,
         vpToken: String,
     ): MultiValueMap<String, Any> {
         val requestObjectJsonResponse =
@@ -540,7 +541,7 @@ internal class DeviceResponseValidationTest {
         runTest {
             val initTransaction = VerifierApiClient.loadInitTransactionTO("07-mdl-dcql.json")
             val transactionDetails =
-                assertIs<InitTransactionResponse.JwtSecuredAuthorizationRequestTO>(
+                assertIs<InitOpenId4VPOverRedirectsTransactionResponse.JwtSecuredAuthorizationRequestTO>(
                     VerifierApiClient.initTransaction(client, initTransaction),
                 )
             WalletApiClient.retrieveRequestObjectResponse(client, transactionDetails.requestUri!!)
@@ -596,7 +597,7 @@ internal class DeviceResponseValidationTest {
             // Set a different Nonce that what is included in OpenID4VPHandoverInfo, to cause a validation failure
             val initTransaction = VerifierApiClient.loadInitTransactionTO("07-mdl-dcql.json").copy(nonce = "nonce")
             val transactionDetails =
-                assertIs<InitTransactionResponse.JwtSecuredAuthorizationRequestTO>(
+                assertIs<InitOpenId4VPOverRedirectsTransactionResponse.JwtSecuredAuthorizationRequestTO>(
                     VerifierApiClient.initTransaction(client, initTransaction),
                 )
             WalletApiClient.retrieveRequestObjectResponse(client, transactionDetails.requestUri!!)

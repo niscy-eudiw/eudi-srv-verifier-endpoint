@@ -77,24 +77,26 @@ enum class HttpResponseModeOption {
 }
 
 sealed interface ResponseMode {
-    sealed interface OverHttp : ResponseMode {
-        data object DirectPost : OverHttp
+    sealed interface OpenId4VP : ResponseMode {
+        sealed interface OverRedirects : OpenId4VP {
+            data object DirectPost : OverRedirects
 
-        data class DirectPostJwt(
-            val ephemeralResponseEncryptionKey: JWK,
-        ) : OverHttp {
-            init {
-                require(ephemeralResponseEncryptionKey.isPrivate)
+            data class DirectPostJwt(
+                val ephemeralResponseEncryptionKey: JWK,
+            ) : OverRedirects {
+                init {
+                    require(ephemeralResponseEncryptionKey.isPrivate)
+                }
             }
         }
-    }
 
-    sealed interface OverDcApi : ResponseMode {
-        data class DcApiJwt(
-            val ephemeralResponseEncryptionKey: JWK,
-        ) : OverDcApi {
-            init {
-                require(ephemeralResponseEncryptionKey.isPrivate)
+        sealed interface OverDCApi : OpenId4VP {
+            data class DCApiJwt(
+                val ephemeralResponseEncryptionKey: JWK,
+            ) : OverDCApi {
+                init {
+                    require(ephemeralResponseEncryptionKey.isPrivate)
+                }
             }
         }
     }
@@ -104,7 +106,7 @@ enum class ResponseModeType {
     DirectPost,
     DirectPostJwt,
     DcApi,
-    DcApiJwt,
+    DCApiJwt,
 }
 
 fun ResponseModeType.name(): String =
@@ -112,15 +114,15 @@ fun ResponseModeType.name(): String =
         ResponseModeType.DirectPost -> OpenId4VPSpec.RESPONSE_MODE_DIRECT_POST
         ResponseModeType.DirectPostJwt -> OpenId4VPSpec.RESPONSE_MODE_DIRECT_POST_JWT
         ResponseModeType.DcApi -> OpenId4VPSpec.RESPONSE_MODE_DCAPI
-        ResponseModeType.DcApiJwt -> OpenId4VPSpec.RESPONSE_MODE_DCAPI_JWT
+        ResponseModeType.DCApiJwt -> OpenId4VPSpec.RESPONSE_MODE_DCAPI_JWT
     }
 
 val ResponseMode.type: ResponseModeType
     get() =
         when (this) {
-            is ResponseMode.OverDcApi.DcApiJwt -> ResponseModeType.DcApiJwt
-            is ResponseMode.OverHttp.DirectPost -> ResponseModeType.DirectPost
-            is ResponseMode.OverHttp.DirectPostJwt -> ResponseModeType.DirectPostJwt
+            is ResponseMode.OpenId4VP.OverDCApi.DCApiJwt -> ResponseModeType.DCApiJwt
+            is ResponseMode.OpenId4VP.OverRedirects.DirectPost -> ResponseModeType.DirectPost
+            is ResponseMode.OpenId4VP.OverRedirects.DirectPostJwt -> ResponseModeType.DirectPostJwt
         }
 
 data class ResponseEncryptionOption(

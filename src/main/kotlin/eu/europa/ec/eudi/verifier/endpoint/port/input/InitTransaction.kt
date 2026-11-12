@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-@file:OptIn(ExperimentalSerializationApi::class)
 @file:UseSerializers(NonEmptyListSerializer::class)
 
 package eu.europa.ec.eudi.verifier.endpoint.port.input
@@ -37,8 +36,6 @@ import eu.europa.ec.eudi.verifier.endpoint.adapter.out.x509.isSelfSigned
 import eu.europa.ec.eudi.verifier.endpoint.domain.*
 import eu.europa.ec.eudi.verifier.endpoint.domain.EmbedOption
 import eu.europa.ec.eudi.verifier.endpoint.domain.EncryptionRequirement
-import eu.europa.ec.eudi.verifier.endpoint.domain.ResponseMode.OverDcApi.*
-import eu.europa.ec.eudi.verifier.endpoint.domain.ResponseMode.OverHttp.*
 import eu.europa.ec.eudi.verifier.endpoint.domain.rqes.QesApproval
 import eu.europa.ec.eudi.verifier.endpoint.domain.rqes.QesRequest
 import eu.europa.ec.eudi.verifier.endpoint.port.out.cfg.CreateQueryWalletResponseRedirectUri
@@ -90,7 +87,7 @@ enum class EmbedModeTO {
 }
 
 /**
- * The Profile to active for a Transaction.
+ * The Profile to activate for a Transaction.
  */
 @Serializable
 enum class ProfileTO {
@@ -108,7 +105,7 @@ enum class ProfileTO {
 }
 
 @Serializable
-data class InitTransactionTO(
+data class InitOpenId4VPOverRedirectsTransactionTO(
     @SerialName(OpenId4VPSpec.DCQL_QUERY) val dcqlQuery: DCQL? = null,
     @SerialName(OpenId4VPSpec.NONCE) val nonce: String? = null,
     @SerialName(RFC6749.RESPONSE_MODE) val responseMode: ResponseModeTO? = null,
@@ -137,7 +134,7 @@ data class InitTransactionTO(
     }
 }
 
-private val InitTransactionTO.profileOrDefault: ProfileTO
+private val InitOpenId4VPOverRedirectsTransactionTO.profileOrDefault: ProfileTO
     get() = profile ?: ProfileTO.OpenId4VP
 
 /**
@@ -194,7 +191,7 @@ enum class Output {
     QrCode,
 }
 
-sealed interface InitTransactionResponse {
+sealed interface InitOpenId4VPOverRedirectsTransactionResponse {
     /**
      * The return value of successfully [initializing][InitTransaction] a [Presentation] as a QR Code
      *
@@ -203,7 +200,7 @@ sealed interface InitTransactionResponse {
         val qrCode: ByteArray,
         val transactionId: String,
         val authorizationRequestUri: String,
-    ) : InitTransactionResponse {
+    ) : InitOpenId4VPOverRedirectsTransactionResponse {
         override fun equals(other: Any?): Boolean =
             other is QrCode &&
                 qrCode.contentEquals(other.qrCode) &&
@@ -230,7 +227,7 @@ sealed interface InitTransactionResponse {
         @SerialName(RFC9101.REQUEST_URI) val requestUri: String?,
         @SerialName(OpenId4VPSpec.REQUEST_URI_METHOD) val requestUriMethod: RequestUriMethodTO?,
         @SerialName("authorization_request_uri") val authorizationRequestUri: String,
-    ) : InitTransactionResponse {
+    ) : InitOpenId4VPOverRedirectsTransactionResponse {
         companion object {
             fun byValue(
                 transactionId: String,
@@ -273,10 +270,10 @@ sealed interface InitTransactionResponse {
  */
 interface InitTransaction {
     context(_: Raise<ValidationError>)
-    suspend operator fun invoke(initTransactionTO: InitTransactionTO): InitTransactionResponse
+    suspend operator fun invoke(data: InitOpenId4VPOverRedirectsTransactionTO): InitOpenId4VPOverRedirectsTransactionResponse
 
     context(_: Raise<ValidationError>)
-    suspend operator fun invoke(initDcApiTransactionTO: InitDcApiTransactionTO): InitDcApiTransactionResponseTO
+    suspend operator fun invoke(data: InitOpenId4VPOverDCApiTransactionTO): InitOpenId4VPOverDCApiTransactionResponseTO
 }
 
 /**
@@ -297,41 +294,38 @@ class InitTransactionLive(
     private val generateQrCode: GenerateQrCode,
 ) : InitTransaction {
     context(_: Raise<ValidationError>)
-    override suspend fun invoke(initTransactionTO: InitTransactionTO): InitTransactionResponse {
+    override suspend fun invoke(data: InitOpenId4VPOverRedirectsTransactionTO): InitOpenId4VPOverRedirectsTransactionResponse {
         // validate input
         val (nonce, type) =
             context(verifierConfig.transactionDataHashAlgorithm, verifierConfig.clientMetaData.vpFormatsSupported) {
                 validate(
-                    initTransactionTO.dcqlQuery,
-                    initTransactionTO.nonce,
-                    initTransactionTO.transactionData,
+                    data.dcqlQuery,
+                    data.nonce,
+                    data.transactionData,
                 )
             }
 
-        // if response mode is direct post jwt then generate ephemeral key
-        val responseMode = responseMode(initTransactionTO.responseMode)
-
-        val registrationCertificate =
-            context(verifierConfig) {
-                resolveRegistrationCertificate(initTransactionTO.intendedUseId, initTransactionTO.registrationCertificate)
-            }
-
-        val channel =
-            Channel.OverHttp(
-                responseMode = responseMode,
-                requestUriMethod = requestUriMethod(initTransactionTO.requestUriMethod),
-                getWalletResponseMethod = getWalletResponseMethod(initTransactionTO.redirectUriTemplate),
+        val presentationType =
+            PresentationType.OpenId4VP.OverRedirects(
+                responseMode = responseMode(data.responseMode),
+                requestUriMethod = requestUriMethod(data.requestUriMethod),
+                getWalletResponseMethod = getWalletResponseMethod(data.redirectUriTemplate),
                 requestId = generateRequestId(),
+                transactionData = type.transactionData,
+                profile = data.profileOrDefault.toProfile(),
+                registrationCertificate =
+                    context(verifierConfig) {
+                        resolveRegistrationCertificate(data.intendedUseId, data.registrationCertificate)
+                    },
             )
 
-        val issuerChain = issuerChain(initTransactionTO.issuerChain)
-        val profile = initTransactionTO.profileOrDefault.toProfile()
-        val jarMode = jarMode(initTransactionTO)
+        val issuerChain = issuerChain(data.issuerChain)
+        val jarMode = jarMode(data)
 
         // validate according to the selected profile
-        with(profile.validator) {
+        with(presentationType.profile.validator) {
             context(verifierConfig) {
-                validate(channel, jarMode)
+                validate(presentationType, jarMode)
             }
         }
 
@@ -339,8 +333,8 @@ class InitTransactionLive(
         val unresolvedAuthorizationRequestUri =
             with(verifierConfig) {
                 authorizationRequestUri(
-                    initTransactionTO.authorizationRequestUri,
-                    initTransactionTO.authorizationRequestScheme,
+                    data.authorizationRequestUri,
+                    data.authorizationRequestScheme,
                 )
             }
 
@@ -351,86 +345,80 @@ class InitTransactionLive(
                 type,
                 nonce,
                 issuerChain,
-                profile,
-                channel,
+                presentationType,
                 unresolvedAuthorizationRequestUri,
-                registrationCertificate,
             )
-        val response = initTransactionTO.output.createResponse(authorizationRequest)
+        val response = data.output.createResponse(authorizationRequest)
 
         storePresentation(presentation)
-        logTransactionInitialized(presentation, authorizationRequest, profile)
+        logTransactionInitialized(presentation, authorizationRequest, presentationType.profile)
 
         return response
     }
 
     context(_: Raise<ValidationError>)
-    override suspend fun invoke(initDcApiTransactionTO: InitDcApiTransactionTO): InitDcApiTransactionResponseTO {
-        val jarMode = EmbedOption.ByValue
-        val profile = Profile.ETSI119472Part2
-
+    override suspend fun invoke(data: InitOpenId4VPOverDCApiTransactionTO): InitOpenId4VPOverDCApiTransactionResponseTO {
         // validate input
         val (nonce, type) =
             context(verifierConfig.transactionDataHashAlgorithm, verifierConfig.clientMetaData.vpFormatsSupported) {
                 validate(
-                    initDcApiTransactionTO.dcqlQuery,
-                    initDcApiTransactionTO.nonce,
-                    initDcApiTransactionTO.transactionData,
+                    data.dcqlQuery,
+                    data.nonce,
+                    data.transactionData,
                 )
             }
 
-        // if response mode is direct post jwt then generate ephemeral key
-        val responseMode = DcApiJwt(generateEphemeralEncryptionKeyPair())
+        val issuerChain = issuerChain(data.issuerChain)
+        val origin = data.origin
+        val expectedOrigins = data.expectedOrigins ?: nonEmptyListOf(origin)
 
-        val issuerChain = issuerChain(initDcApiTransactionTO.issuerChain)
-        val origin = initDcApiTransactionTO.origin
-        val expectedOrigins = initDcApiTransactionTO.expectedOrigins ?: nonEmptyListOf(origin)
-
-        val channel = Channel.OverDcApi(responseMode, origin, expectedOrigins)
+        val presentationType =
+            PresentationType.OpenId4VP.OverDCApi(
+                ResponseMode.OpenId4VP.OverDCApi.DCApiJwt(
+                    generateEphemeralEncryptionKeyPair(),
+                ),
+                origin,
+                expectedOrigins,
+                type.transactionData,
+                context(verifierConfig) {
+                    resolveRegistrationCertificate(data.intendedUseId, data.registrationCertificate)
+                },
+            )
 
         // validate according to the selected profile
-        with(profile.validator) {
+        with(Profile.ETSI119472Part2.validator) {
             context(verifierConfig) {
-                validate(channel, jarMode)
+                validate(presentationType, EmbedOption.ByValue)
             }
         }
-
-        val registrationCertificate =
-            context(verifierConfig) {
-                resolveRegistrationCertificate(initDcApiTransactionTO.intendedUseId, initDcApiTransactionTO.registrationCertificate)
-            }
 
         // Initialize presentation
         val presentation =
             Presentation.RequestObjectRetrieved(
                 id = generateTransactionId(),
                 initiatedAt = clock.now(),
-                channel = channel,
+                presentationType = presentationType,
                 query = type.query,
                 requestObjectRetrievedAt = clock.now(),
                 nonce = nonce,
-                transactionData = type.transactionData,
                 issuerChain = issuerChain,
-                profile = profile,
             )
 
         val jar =
             createJar(
                 clock.now(),
-                presentation.transactionData,
-                presentation.channel,
+                presentationType,
                 presentation.query,
                 presentation.nonce,
                 null,
                 Audience("https://self-issued.me/v2"),
                 EncryptionRequirement.NotRequired,
-                registrationCertificate,
             )
 
         storePresentation(presentation)
         logTransactionInitialized(presentation, jar)
 
-        return InitDcApiTransactionResponseTO(
+        return InitOpenId4VPOverDCApiTransactionResponseTO(
             jar,
             presentation.id.value,
         )
@@ -441,11 +429,9 @@ class InitTransactionLive(
         type: VpTokenRequest,
         nonce: Nonce,
         issuerChain: NonEmptyList<X509Certificate>?,
-        profile: Profile,
-        channel: Channel.OverHttp,
+        presentationType: PresentationType.OpenId4VP.OverRedirects,
         unresolvedAuthorizationRequestUri: UnresolvedAuthorizationRequestUri,
-        registrationCertificate: RegistrationCertificate,
-    ): Pair<Presentation, InitTransactionResponse.JwtSecuredAuthorizationRequestTO> =
+    ): Pair<Presentation, InitOpenId4VPOverRedirectsTransactionResponse.JwtSecuredAuthorizationRequestTO> =
         when (jarMode) {
             is EmbedOption.ByReference -> {
                 val presentation =
@@ -453,26 +439,23 @@ class InitTransactionLive(
                         id = generateTransactionId(),
                         initiatedAt = clock.now(),
                         query = type.query,
-                        transactionData = type.transactionData,
                         nonce = nonce,
                         issuerChain = issuerChain,
-                        profile = profile,
-                        channel = channel,
-                        registrationCertificate = registrationCertificate,
+                        presentationType = presentationType,
                     )
 
-                val requestUri = jarMode.buildUrl(presentation.channel.requestId)
+                val requestUri = jarMode.buildUrl(presentation.presentationType.requestId)
                 val authorizationRequest =
-                    InitTransactionResponse.JwtSecuredAuthorizationRequestTO.byReference(
+                    InitOpenId4VPOverRedirectsTransactionResponse.JwtSecuredAuthorizationRequestTO.byReference(
                         presentation.id.value,
                         verifierConfig.verifierId.clientId,
                         requestUri,
-                        presentation.channel.requestUriMethod.toTO(),
+                        presentation.presentationType.requestUriMethod.toTO(),
                         unresolvedAuthorizationRequestUri
                             .resolve(
                                 verifierConfig.verifierId,
                                 Uri.parse(requestUri.toString()),
-                                presentation.channel.requestUriMethod,
+                                presentation.presentationType.requestUriMethod,
                             ).toURI(),
                     )
                 presentation to authorizationRequest
@@ -483,29 +466,25 @@ class InitTransactionLive(
                     Presentation.RequestObjectRetrieved(
                         id = generateTransactionId(),
                         initiatedAt = clock.now(),
-                        channel = channel,
+                        presentationType = presentationType,
                         query = type.query,
-                        transactionData = type.transactionData,
                         requestObjectRetrievedAt = clock.now(),
                         nonce = nonce,
                         issuerChain = issuerChain,
-                        profile = profile,
                     )
 
                 val jar =
                     createJar(
                         clock.now(),
-                        presentation.transactionData,
-                        presentation.channel,
+                        presentationType,
                         presentation.query,
                         presentation.nonce,
                         null,
                         Audience("https://self-issued.me/v2"),
                         EncryptionRequirement.NotRequired,
-                        registrationCertificate,
                     )
                 val authorizationRequest =
-                    InitTransactionResponse.JwtSecuredAuthorizationRequestTO.byValue(
+                    InitOpenId4VPOverRedirectsTransactionResponse.JwtSecuredAuthorizationRequestTO.byValue(
                         presentation.id.value,
                         verifierConfig.verifierId.clientId,
                         jar,
@@ -516,15 +495,15 @@ class InitTransactionLive(
         }
 
     private suspend fun Output.createResponse(
-        authorizationRequest: InitTransactionResponse.JwtSecuredAuthorizationRequestTO,
-    ): InitTransactionResponse =
+        authorizationRequest: InitOpenId4VPOverRedirectsTransactionResponse.JwtSecuredAuthorizationRequestTO,
+    ): InitOpenId4VPOverRedirectsTransactionResponse =
         when (this) {
             Output.Json -> {
                 authorizationRequest
             }
 
             Output.QrCode -> {
-                InitTransactionResponse.QrCode(
+                InitOpenId4VPOverRedirectsTransactionResponse.QrCode(
                     generateQrCode(authorizationRequest.authorizationRequestUri, size = (250.pixels by 250.pixels)),
                     authorizationRequest.transactionId,
                     authorizationRequest.authorizationRequestUri,
@@ -533,7 +512,7 @@ class InitTransactionLive(
         }
 
     /**
-     * Gets the JAR [RequestUriMethod] for the provided [InitTransactionTO].
+     * Gets the JAR [RequestUriMethod] for the provided [InitOpenId4VPOverRedirectsTransactionTO].
      * If none has been provided, falls back to [VerifierConfig.requestUriMethod].
      */
     private fun requestUriMethod(requestUriMethod: RequestUriMethodTO?): RequestUriMethod =
@@ -555,33 +534,35 @@ class InitTransactionLive(
             } ?: GetWalletResponseMethod.Poll
 
     /**
-     * Gets the [ResponseMode] for the provided [InitTransactionTO].
+     * Gets the [ResponseMode] for the provided [InitOpenId4VPOverRedirectsTransactionTO].
      */
-    private suspend fun responseMode(responseMode: InitTransactionTO.ResponseModeTO?): ResponseMode.OverHttp {
+    private suspend fun responseMode(
+        responseMode: InitOpenId4VPOverRedirectsTransactionTO.ResponseModeTO?,
+    ): ResponseMode.OpenId4VP.OverRedirects {
         val httpResponseModeOption =
             when (responseMode) {
-                InitTransactionTO.ResponseModeTO.DirectPost -> HttpResponseModeOption.DirectPost
-                InitTransactionTO.ResponseModeTO.DirectPostJwt -> HttpResponseModeOption.DirectPostJwt
+                InitOpenId4VPOverRedirectsTransactionTO.ResponseModeTO.DirectPost -> HttpResponseModeOption.DirectPost
+                InitOpenId4VPOverRedirectsTransactionTO.ResponseModeTO.DirectPostJwt -> HttpResponseModeOption.DirectPostJwt
                 null -> verifierConfig.defaultHttpResponseModeOption
             }
 
         return when (httpResponseModeOption) {
             HttpResponseModeOption.DirectPost -> {
-                DirectPost
+                ResponseMode.OpenId4VP.OverRedirects.DirectPost
             }
 
             HttpResponseModeOption.DirectPostJwt -> {
                 val responseEncryptionKey = generateEphemeralEncryptionKeyPair()
-                DirectPostJwt(responseEncryptionKey)
+                ResponseMode.OpenId4VP.OverRedirects.DirectPostJwt(responseEncryptionKey)
             }
         }
     }
 
     /**
-     * Gets the JAR [EmbedOption] for the provided [InitTransactionTO].
+     * Gets the JAR [EmbedOption] for the provided [InitOpenId4VPOverRedirectsTransactionTO].
      * If none has been provided, falls back to [VerifierConfig.requestJarOption].
      */
-    private fun jarMode(initTransaction: InitTransactionTO): EmbedOption<RequestId> =
+    private fun jarMode(initTransaction: InitOpenId4VPOverRedirectsTransactionTO): EmbedOption<RequestId> =
         when (initTransaction.jarMode) {
             EmbedModeTO.ByValue -> EmbedOption.ByValue
             EmbedModeTO.ByReference -> requestJarByReference
@@ -590,7 +571,7 @@ class InitTransactionLive(
 
     private suspend fun logTransactionInitialized(
         presentation: Presentation,
-        request: InitTransactionResponse.JwtSecuredAuthorizationRequestTO,
+        request: InitOpenId4VPOverRedirectsTransactionResponse.JwtSecuredAuthorizationRequestTO,
         profile: Profile,
     ) {
         val event =
@@ -733,14 +714,14 @@ private fun <T : Any, U : T> Collection<T>.containsAny(
 private fun interface ProfileValidator {
     context(_: Raise<ValidationError>, config: VerifierConfig)
     suspend fun validate(
-        channel: Channel,
+        presentationType: PresentationType,
         jarMode: EmbedOption<RequestId>,
     )
 
     companion object {
         val OpenId4VP = ProfileValidator { _, _ -> }
         val HAIP =
-            ProfileValidator { channel, jarMode ->
+            ProfileValidator { presentationType, jarMode ->
                 val config = contextOf<VerifierConfig>()
                 with(config.clientMetaData.vpFormatsSupported) {
                     ensure(null != sdJwtVc || null != msoMdoc) {
@@ -792,15 +773,15 @@ private fun interface ProfileValidator {
                 ) {
                     ValidationError.HaipNotSupported.SelfSignedCertificateMustNotBeUsed
                 }
-                when (channel) {
-                    is Channel.OverDcApi -> {
+                when (presentationType) {
+                    is PresentationType.OpenId4VP.OverDCApi -> {
                         ensure(jarMode is EmbedOption.ByValue) {
                             ValidationError.HaipNotSupported.AuthorizationRequestMustBeProvidedByReference
                         }
                     }
 
-                    is Channel.OverHttp -> {
-                        ensure(channel.responseMode is DirectPostJwt) {
+                    is PresentationType.OpenId4VP.OverRedirects -> {
+                        ensure(presentationType.responseMode is ResponseMode.OpenId4VP.OverRedirects.DirectPostJwt) {
                             ValidationError.HaipNotSupported.ResponseModeDirectPostJwtMustBeUsed
                         }
                         ensure(jarMode is EmbedOption.ByReference) {
@@ -811,8 +792,8 @@ private fun interface ProfileValidator {
             }
 
         val ETSI119472Part2 =
-            ProfileValidator { channel, jarMode ->
-                HAIP.validate(channel, jarMode)
+            ProfileValidator { presentationType, jarMode ->
+                HAIP.validate(presentationType, jarMode)
             }
     }
 }
@@ -857,7 +838,7 @@ private fun resolveRegistrationCertificate(
         ) ?: raise(ValidationError.MissingRegistrationCertificate)
 
 @Serializable
-data class InitDcApiTransactionTO(
+data class InitOpenId4VPOverDCApiTransactionTO(
     @Required @SerialName(OpenId4VPSpec.DCQL_QUERY) val dcqlQuery: DCQL,
     @Required @SerialName(OpenId4VPSpec.NONCE) val nonce: String,
     @SerialName(OpenId4VPSpec.TRANSACTION_DATA) val transactionData: List<JsonObject>? = null,

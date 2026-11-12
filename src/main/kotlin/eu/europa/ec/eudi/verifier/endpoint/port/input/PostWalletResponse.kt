@@ -162,7 +162,7 @@ private suspend fun AuthorisationResponseTO.verifiablePresentations(
                     )
             val unvalidatedVerifiablePresentations = value.map { it.toVerifiablePresentation(format) }
             val applicableTransactionData =
-                presentation.transactionData
+                presentation.transactionDataOrNull
                     ?.filter { queryId.value in it.credentialIds }
                     ?.toNonEmptyListOrNull()
             ensure(vpFormatsSupported.supports(format)) {
@@ -316,9 +316,9 @@ class PostWalletResponseLive(
             doSubmit(presentation, responseObject).also { storePresentation(it) }
 
         val accepted =
-            when (val channel = presentation.channel) {
-                is Channel.OverHttp -> {
-                    when (val getWalletResponseMethod = channel.getWalletResponseMethod) {
+            when (val presentationType = presentation.presentationType) {
+                is PresentationType.OpenId4VP.OverRedirects -> {
+                    when (val getWalletResponseMethod = presentationType.getWalletResponseMethod) {
                         is GetWalletResponseMethod.Redirect -> {
                             with(createQueryWalletResponseRedirectUri) {
                                 requireNotNull(submitted.responseCode) { "ResponseCode expected in Submitted state but not found" }
@@ -333,7 +333,7 @@ class PostWalletResponseLive(
                     }
                 }
 
-                is Channel.OverDcApi -> {
+                is PresentationType.OpenId4VP.OverDCApi -> {
                     null
                 }
             }
@@ -355,13 +355,13 @@ class PostWalletResponseLive(
         walletResponse: AuthorisationResponse,
         presentation: RequestObjectRetrieved,
     ): AuthorisationResponseTO =
-        when (val channel = presentation.channel) {
-            is Channel.OverHttp -> {
-                when (val responseMode = channel.responseMode) {
-                    ResponseMode.OverHttp.DirectPost -> {
+        when (val presentationType = presentation.presentationType) {
+            is PresentationType.OpenId4VP.OverRedirects -> {
+                when (val responseMode = presentationType.responseMode) {
+                    ResponseMode.OpenId4VP.OverRedirects.DirectPost -> {
                         ensure(walletResponse is AuthorisationResponse.DirectPost) {
                             UnexpectedResponseMode(
-                                presentation.channel.requestId,
+                                presentation.presentationType.requestId,
                                 expected = ResponseModeType.DirectPost,
                                 actual = walletResponse.responseModeType,
                             )
@@ -369,12 +369,12 @@ class PostWalletResponseLive(
                         walletResponse.response
                     }
 
-                    is ResponseMode.OverHttp.DirectPostJwt -> {
+                    is ResponseMode.OpenId4VP.OverRedirects.DirectPostJwt -> {
                         when (walletResponse) {
                             is AuthorisationResponse.DirectPost -> {
                                 ensure(walletResponse.isErrorResponse()) {
                                     UnexpectedResponseMode(
-                                        presentation.channel.requestId,
+                                        presentation.presentationType.requestId,
                                         expected = ResponseModeType.DirectPostJwt,
                                         actual = ResponseModeType.DirectPost,
                                     )
@@ -393,7 +393,7 @@ class PostWalletResponseLive(
                             else -> {
                                 raise(
                                     UnexpectedResponseMode(
-                                        presentation.channel.requestId,
+                                        presentation.presentationType.requestId,
                                         expected = ResponseModeType.DirectPostJwt,
                                         actual = walletResponse.responseModeType,
                                     ),
@@ -404,15 +404,15 @@ class PostWalletResponseLive(
                 }
             }
 
-            is Channel.OverDcApi -> {
-                when (val responseMode = channel.responseMode) {
-                    is ResponseMode.OverDcApi.DcApiJwt -> {
+            is PresentationType.OpenId4VP.OverDCApi -> {
+                when (val responseMode = presentationType.responseMode) {
+                    is ResponseMode.OpenId4VP.OverDCApi.DCApiJwt -> {
                         when (walletResponse) {
                             is AuthorisationResponse.DcApi -> {
                                 ensure(walletResponse.isErrorResponse()) {
                                     UnexpectedResponseMode(
                                         null,
-                                        expected = ResponseModeType.DcApiJwt,
+                                        expected = ResponseModeType.DCApiJwt,
                                         actual = ResponseModeType.DcApi,
                                     )
                                 }
@@ -431,7 +431,7 @@ class PostWalletResponseLive(
                                 raise(
                                     UnexpectedResponseMode(
                                         null,
-                                        expected = ResponseModeType.DcApiJwt,
+                                        expected = ResponseModeType.DCApiJwt,
                                         actual = walletResponse.responseModeType,
                                     ),
                                 )
@@ -456,15 +456,15 @@ class PostWalletResponseLive(
             )
 
         val responseCode =
-            when (val channel = presentation.channel) {
-                is Channel.OverDcApi -> {
+            when (val presentationType = presentation.presentationType) {
+                is PresentationType.OpenId4VP.OverDCApi -> {
                     null
                 }
 
-                is Channel.OverHttp -> {
+                is PresentationType.OpenId4VP.OverRedirects -> {
                     // Verify response `state` is RequestId
-                    ensure(presentation.channel.requestId.value == responseObject.state) { IncorrectState }
-                    when (channel.getWalletResponseMethod) {
+                    ensure(presentation.presentationType.requestId.value == responseObject.state) { IncorrectState }
+                    when (presentationType.getWalletResponseMethod) {
                         GetWalletResponseMethod.Poll -> null
                         is GetWalletResponseMethod.Redirect -> generateResponseCode()
                     }
@@ -515,7 +515,7 @@ private val AuthorisationResponse.responseModeType: ResponseModeType
             is AuthorisationResponse.DirectPost -> ResponseModeType.DirectPost
             is AuthorisationResponse.DirectPostJwt -> ResponseModeType.DirectPostJwt
             is AuthorisationResponse.DcApi -> ResponseModeType.DcApi
-            is AuthorisationResponse.DcApiJwt -> ResponseModeType.DcApiJwt
+            is AuthorisationResponse.DcApiJwt -> ResponseModeType.DCApiJwt
         }
 private val AuthorisationResponse.encryptedResponseOrNull: Jwt?
     get() =
@@ -537,17 +537,17 @@ private val AuthorisationResponse.vpTokenOrNull: JsonObject?
 
 private val RequestObjectRetrieved.ephemeralResponseEncryptionKeyOrNull: JWK?
     get() =
-        when (val channel = this.channel) {
-            is Channel.OverHttp -> {
-                when (val responseMode = channel.responseMode) {
-                    ResponseMode.OverHttp.DirectPost -> null
-                    is ResponseMode.OverHttp.DirectPostJwt -> responseMode.ephemeralResponseEncryptionKey
+        when (val presentationType = this.presentationType) {
+            is PresentationType.OpenId4VP.OverRedirects -> {
+                when (val responseMode = presentationType.responseMode) {
+                    ResponseMode.OpenId4VP.OverRedirects.DirectPost -> null
+                    is ResponseMode.OpenId4VP.OverRedirects.DirectPostJwt -> responseMode.ephemeralResponseEncryptionKey
                 }
             }
 
-            is Channel.OverDcApi -> {
-                when (val responseMode = channel.responseMode) {
-                    is ResponseMode.OverDcApi.DcApiJwt -> responseMode.ephemeralResponseEncryptionKey
+            is PresentationType.OpenId4VP.OverDCApi -> {
+                when (val responseMode = presentationType.responseMode) {
+                    is ResponseMode.OpenId4VP.OverDCApi.DCApiJwt -> responseMode.ephemeralResponseEncryptionKey
                 }
             }
         }

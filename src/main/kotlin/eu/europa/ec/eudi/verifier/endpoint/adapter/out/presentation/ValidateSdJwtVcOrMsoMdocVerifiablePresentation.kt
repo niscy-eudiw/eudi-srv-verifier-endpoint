@@ -65,9 +65,9 @@ internal class ValidateSdJwtVcOrMsoMdocVerifiablePresentation(
                 val vpFormatSupported = checkNotNull(vpFormatsSupported.sdJwtVc)
                 val validator = sdJwtVcValidatorFactory(presentation.issuerChain)
                 val audience =
-                    when (presentation.channel) {
-                        is Channel.OverDcApi -> "origin:${presentation.channel.origin}"
-                        is Channel.OverHttp -> config.verifierId.clientId
+                    when (presentation.presentationType) {
+                        is PresentationType.OpenId4VP.OverDCApi -> "origin:${presentation.presentationType.origin}"
+                        is PresentationType.OpenId4VP.OverRedirects -> config.verifierId.clientId
                     }
                 validator.validateSdJwtVcVerifiablePresentation(
                     vpFormatSupported,
@@ -76,7 +76,7 @@ internal class ValidateSdJwtVcOrMsoMdocVerifiablePresentation(
                     audience,
                     transactionData,
                     presentation.id,
-                    presentation.profile,
+                    presentation.profileOrNull,
                 )
             }
 
@@ -103,7 +103,7 @@ internal class ValidateSdJwtVcOrMsoMdocVerifiablePresentation(
         audience: String,
         transactionData: NonEmptyList<TransactionData>?,
         transactionId: TransactionId,
-        profile: Profile,
+        profile: Profile?,
     ): VerifiablePresentation {
         fun invalidVpToken(errors: NonEmptyList<SdJwtVcValidationError>): WalletResponseValidationError {
             val validationFailures = jsonSupport.encodeToString(errors.toJson())
@@ -183,7 +183,8 @@ internal class ValidateSdJwtVcOrMsoMdocVerifiablePresentation(
                 ensureValid(verifiablePresentation.value, presentation.id, handoverInfo)
             }
 
-        if (Profile.HAIP == presentation.profile) {
+        val profile = presentation.profileOrNull
+        if (Profile.HAIP == profile) {
             ensure(1 == documents.size) {
                 WalletResponseValidationError.HAIPValidationError.DeviceResponseContainsMoreThanOneMDoc
             }
@@ -214,7 +215,7 @@ internal class ValidateSdJwtVcOrMsoMdocVerifiablePresentation(
 
             val issuerSignaturePayload = checkNotNull(issuerSignature.decodePayloadAs<MapElement>())
             val status = issuerSignaturePayload.value[MapKey(TokenStatusListSpec.STATUS)]
-            if (Profile.HAIP == presentation.profile && status is MapElement) {
+            if (Profile.HAIP == profile && status is MapElement) {
                 val msoRevocationMechanisms = setOf("identifier_list", TokenStatusListSpec.STATUS_LIST)
                 ensure(status.value.keys.all { MapKeyType.string == it.type && it.str in msoRevocationMechanisms }) {
                     WalletResponseValidationError.HAIPValidationError.UnsupportedMsoRevocationMechanism(

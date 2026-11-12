@@ -20,12 +20,9 @@ import arrow.core.raise.context.Raise
 import arrow.core.raise.context.ensure
 import com.eygraber.uri.Url
 import com.nimbusds.jose.JOSEObjectType
-import com.nimbusds.jose.JWSVerifier
 import com.nimbusds.jose.crypto.ECDSAVerifier
-import com.nimbusds.jose.util.X509CertChainUtils
 import com.nimbusds.jose.util.X509CertUtils
 import com.nimbusds.jwt.SignedJWT
-import com.nimbusds.oauth2.sdk.util.X509CertificateUtils
 import kotlinx.serialization.json.JsonObject
 import java.security.cert.X509Certificate
 import java.security.interfaces.ECPublicKey
@@ -156,21 +153,37 @@ sealed interface Profile {
     data object ETSI119472Part2 : Profile
 }
 
-sealed interface Channel {
+sealed interface PresentationType {
     val responseMode: ResponseMode
 
-    data class OverHttp(
-        override val responseMode: ResponseMode.OverHttp,
-        val requestUriMethod: RequestUriMethod,
-        val getWalletResponseMethod: GetWalletResponseMethod,
-        val requestId: RequestId,
-    ) : Channel
+    sealed interface OpenId4VP : PresentationType {
+        override val responseMode: ResponseMode.OpenId4VP
 
-    data class OverDcApi(
-        override val responseMode: ResponseMode.OverDcApi,
-        val origin: Url,
-        val expectedOrigins: NonEmptyList<Url>,
-    ) : Channel
+        val transactionData: NonEmptyList<TransactionData>?
+        val profile: Profile
+        val registrationCertificate: RegistrationCertificate
+
+        data class OverRedirects(
+            override val responseMode: ResponseMode.OpenId4VP.OverRedirects,
+            val requestUriMethod: RequestUriMethod,
+            val getWalletResponseMethod: GetWalletResponseMethod,
+            val requestId: RequestId,
+            override val transactionData: NonEmptyList<TransactionData>?,
+            override val profile: Profile,
+            override val registrationCertificate: RegistrationCertificate,
+        ) : OpenId4VP
+
+        data class OverDCApi(
+            override val responseMode: ResponseMode.OpenId4VP.OverDCApi,
+            val origin: Url,
+            val expectedOrigins: NonEmptyList<Url>,
+            override val transactionData: NonEmptyList<TransactionData>?,
+            override val registrationCertificate: RegistrationCertificate,
+        ) : OpenId4VP {
+            override val profile: Profile
+                get() = Profile.ETSI119472Part2
+        }
+    }
 }
 
 @JvmInline
@@ -213,7 +226,7 @@ value class RegistrationCertificate private constructor(
 sealed interface Presentation {
     val id: TransactionId
     val initiatedAt: Instant
-    val channel: Channel
+    val presentationType: PresentationType
 
     /**
      * A presentation process that has been just requested
@@ -221,13 +234,10 @@ sealed interface Presentation {
     class Requested(
         override val id: TransactionId,
         override val initiatedAt: Instant,
-        override val channel: Channel.OverHttp,
+        override val presentationType: PresentationType.OpenId4VP.OverRedirects,
         val query: DCQL,
-        val transactionData: NonEmptyList<TransactionData>?,
         val nonce: Nonce,
         val issuerChain: NonEmptyList<X509Certificate>?,
-        val profile: Profile,
-        val registrationCertificate: RegistrationCertificate,
     ) : Presentation
 
     /**
@@ -239,13 +249,11 @@ sealed interface Presentation {
     class RequestObjectRetrieved(
         override val id: TransactionId,
         override val initiatedAt: Instant,
-        override val channel: Channel,
+        override val presentationType: PresentationType,
         val query: DCQL,
-        val transactionData: NonEmptyList<TransactionData>?,
         val requestObjectRetrievedAt: Instant,
         val nonce: Nonce,
         val issuerChain: NonEmptyList<X509Certificate>?,
-        val profile: Profile,
     ) : Presentation {
         init {
             require(initiatedAt <= requestObjectRetrievedAt)
@@ -259,13 +267,11 @@ sealed interface Presentation {
                 RequestObjectRetrieved(
                     requested.id,
                     requested.initiatedAt,
-                    requested.channel,
+                    requested.presentationType,
                     requested.query,
-                    requested.transactionData,
                     at,
                     requested.nonce,
                     requested.issuerChain,
-                    requested.profile,
                 )
         }
     }
@@ -276,7 +282,7 @@ sealed interface Presentation {
     class Submitted private constructor(
         override val id: TransactionId,
         override val initiatedAt: Instant,
-        override val channel: Channel,
+        override val presentationType: PresentationType,
         var requestObjectRetrievedAt: Instant,
         var submittedAt: Instant,
         val walletResponse: WalletResponse,
@@ -295,7 +301,7 @@ sealed interface Presentation {
                     Submitted(
                         id,
                         initiatedAt,
-                        channel,
+                        presentationType,
                         requestObjectRetrievedAt,
                         at,
                         walletResponse,
@@ -309,7 +315,7 @@ sealed interface Presentation {
     class TimedOut private constructor(
         override val id: TransactionId,
         override val initiatedAt: Instant,
-        override val channel: Channel,
+        override val presentationType: PresentationType,
         val requestObjectRetrievedAt: Instant?,
         val timedOutAt: Instant,
     ) : Presentation {
@@ -320,7 +326,7 @@ sealed interface Presentation {
                 at: Instant,
             ): TimedOut {
                 ensure(presentation.initiatedAt < at) { "Presentation ${presentation.initiatedAt} is before $at" }
-                return TimedOut(presentation.id, presentation.initiatedAt, presentation.channel, null, at)
+                return TimedOut(presentation.id, presentation.initiatedAt, presentation.presentationType, null, at)
             }
 
             context(_: Raise<String>)
@@ -332,7 +338,7 @@ sealed interface Presentation {
                 return TimedOut(
                     presentation.id,
                     presentation.initiatedAt,
-                    presentation.channel,
+                    presentation.presentationType,
                     presentation.requestObjectRetrievedAt,
                     at,
                 )
@@ -366,3 +372,21 @@ fun Presentation.RequestObjectRetrieved.submit(
     walletResponse: WalletResponse,
     responseCode: ResponseCode?,
 ): Presentation.Submitted = Presentation.Submitted.submitted(this, clock.now(), walletResponse, responseCode)
+
+val Presentation.transactionDataOrNull: NonEmptyList<TransactionData>?
+    get() =
+        when (val presentationType = presentationType) {
+            is PresentationType.OpenId4VP -> presentationType.transactionData
+        }
+
+val Presentation.profileOrNull: Profile?
+    get() =
+        when (val presentationType = presentationType) {
+            is PresentationType.OpenId4VP -> presentationType.profile
+        }
+
+val Presentation.registrationCertificateOrNull: RegistrationCertificate?
+    get() =
+        when (val presentationType = presentationType) {
+            is PresentationType.OpenId4VP -> presentationType.registrationCertificate
+        }

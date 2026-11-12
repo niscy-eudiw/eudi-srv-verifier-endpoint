@@ -33,7 +33,6 @@ import eu.europa.ec.eudi.verifier.endpoint.TestContext
 import eu.europa.ec.eudi.verifier.endpoint.adapter.input.web.TestUtils
 import eu.europa.ec.eudi.verifier.endpoint.adapter.out.json.decodeAs
 import eu.europa.ec.eudi.verifier.endpoint.adapter.out.json.toJsonObject
-import eu.europa.ec.eudi.verifier.endpoint.domain.Channel
 import eu.europa.ec.eudi.verifier.endpoint.domain.DCQL
 import eu.europa.ec.eudi.verifier.endpoint.domain.EmbedOption
 import eu.europa.ec.eudi.verifier.endpoint.domain.EncryptionRequirement
@@ -43,12 +42,14 @@ import eu.europa.ec.eudi.verifier.endpoint.domain.HttpResponseModeOption
 import eu.europa.ec.eudi.verifier.endpoint.domain.IntendedUse
 import eu.europa.ec.eudi.verifier.endpoint.domain.Nonce
 import eu.europa.ec.eudi.verifier.endpoint.domain.OpenId4VPSpec
+import eu.europa.ec.eudi.verifier.endpoint.domain.PresentationType
+import eu.europa.ec.eudi.verifier.endpoint.domain.Profile
 import eu.europa.ec.eudi.verifier.endpoint.domain.RegistrationCertificate
 import eu.europa.ec.eudi.verifier.endpoint.domain.RequestUriMethod
 import eu.europa.ec.eudi.verifier.endpoint.domain.ResponseMode
 import eu.europa.ec.eudi.verifier.endpoint.domain.UnresolvedAuthorizationRequestUri
 import eu.europa.ec.eudi.verifier.endpoint.domain.VerifierConfig
-import eu.europa.ec.eudi.verifier.endpoint.port.input.InitTransactionTO
+import eu.europa.ec.eudi.verifier.endpoint.port.input.InitOpenId4VPOverRedirectsTransactionTO
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import net.minidev.json.JSONObject
@@ -87,7 +88,8 @@ class CreateJarNimbusTest {
 
     @Test
     fun `given a request object, it should be signed and decoded`() {
-        val query = checkNotNull(Json.decodeFromString<InitTransactionTO>(TestUtils.loadResource("02-dcql.json")).dcqlQuery)
+        val query =
+            checkNotNull(Json.decodeFromString<InitOpenId4VPOverRedirectsTransactionTO>(TestUtils.loadResource("02-dcql.json")).dcqlQuery)
         val wrprc = checkNotNull(TestUtils.loadResource("wrprc.jwt"))
         val requestObject =
             RequestObject(
@@ -120,7 +122,7 @@ class CreateJarNimbusTest {
 
         val jwt =
             createJar
-                .sign(ResponseMode.OverHttp.DirectPostJwt(ecKey), requestObject, null)
+                .sign(ResponseMode.OpenId4VP.OverRedirects.DirectPostJwt(ecKey), requestObject, null)
                 .serialize()
                 .also { println(it) }
         val signedJwt = decode(jwt).getOrThrow().also { println(it) }
@@ -144,25 +146,27 @@ class CreateJarNimbusTest {
         }
 
     private suspend fun createJarWithWalletIdentifier(walletIdentifier: Audience): String {
-        val query = checkNotNull(Json.decodeFromString<InitTransactionTO>(TestUtils.loadResource("02-dcql.json")).dcqlQuery)
+        val query =
+            checkNotNull(Json.decodeFromString<InitOpenId4VPOverRedirectsTransactionTO>(TestUtils.loadResource("02-dcql.json")).dcqlQuery)
         val registrationCertificate = RegistrationCertificate.parse(TestUtils.loadResource("wrprc.jwt"))
-        val channel =
-            Channel.OverHttp(
-                responseMode = ResponseMode.OverHttp.DirectPost,
+        val presentationType =
+            PresentationType.OpenId4VP.OverRedirects(
+                responseMode = ResponseMode.OpenId4VP.OverRedirects.DirectPost,
                 requestUriMethod = RequestUriMethod.Post,
                 getWalletResponseMethod = GetWalletResponseMethod.Poll,
                 requestId = TestContext.testRequestId,
+                transactionData = null,
+                profile = Profile.OpenId4VP,
+                registrationCertificate = registrationCertificate,
             )
         return createJar(
             issuedAt = TestContext.testClock.now(),
-            transactionData = null,
-            channel = channel,
+            presentationType = presentationType,
             query = query,
             nonce = Nonce("test-nonce"),
             walletNonce = null,
             walletIdentifier = walletIdentifier,
             walletJarEncryptionRequirement = EncryptionRequirement.NotRequired,
-            registrationCertificate = registrationCertificate,
         )
     }
 

@@ -153,14 +153,12 @@ class RetrieveRequestObjectLive(
             val jar =
                 createJar(
                     clock.now(),
-                    presentation.transactionData,
-                    presentation.channel,
+                    presentation.presentationType,
                     presentation.query,
                     presentation.nonce,
                     method.walletNonceOrNull,
                     walletIdentifier,
                     encryptionRequirement,
-                    presentation.registrationCertificate,
                 )
             val updatedPresentation = presentation.retrieveRequestObject(clock)
             storePresentation(updatedPresentation)
@@ -178,19 +176,19 @@ class RetrieveRequestObjectLive(
         when (method) {
             is RetrieveRequestObjectMethod.Get -> {
                 ensure(
-                    presentation.channel.requestUriMethod == RequestUriMethod.PostOrGet ||
-                        presentation.channel.requestUriMethod == RequestUriMethod.Get,
+                    presentation.presentationType.requestUriMethod == RequestUriMethod.PostOrGet ||
+                        presentation.presentationType.requestUriMethod == RequestUriMethod.Get,
                 ) {
-                    RetrieveRequestObjectError.InvalidRequestUriMethod(presentation.channel.requestUriMethod)
+                    RetrieveRequestObjectError.InvalidRequestUriMethod(presentation.presentationType.requestUriMethod)
                 }
             }
 
             is RetrieveRequestObjectMethod.Post -> {
                 ensure(
-                    presentation.channel.requestUriMethod == RequestUriMethod.PostOrGet ||
-                        presentation.channel.requestUriMethod == RequestUriMethod.Post,
+                    presentation.presentationType.requestUriMethod == RequestUriMethod.PostOrGet ||
+                        presentation.presentationType.requestUriMethod == RequestUriMethod.Post,
                 ) {
-                    RetrieveRequestObjectError.InvalidRequestUriMethod(presentation.channel.requestUriMethod)
+                    RetrieveRequestObjectError.InvalidRequestUriMethod(presentation.presentationType.requestUriMethod)
                 }
             }
         }
@@ -309,7 +307,7 @@ private class WalletMetadataValidator(
         presentation: Presentation.Requested,
     ) {
         val responseMode =
-            presentation.channel.responseMode.type
+            presentation.presentationType.responseMode.type
                 .name()
         val supportedResponseModes = metadata.responseModesSupported ?: RFC8414.DEFAULT_RESPONSE_MODES_SUPPORTED
         ensure(responseMode in supportedResponseModes) {

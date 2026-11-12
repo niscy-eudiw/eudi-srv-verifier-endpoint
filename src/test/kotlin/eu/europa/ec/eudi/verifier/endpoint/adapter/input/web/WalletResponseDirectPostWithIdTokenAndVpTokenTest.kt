@@ -18,7 +18,7 @@ package eu.europa.ec.eudi.verifier.endpoint.adapter.input.web
 import eu.europa.ec.eudi.verifier.endpoint.VerifierApplicationTest
 import eu.europa.ec.eudi.verifier.endpoint.domain.RequestId
 import eu.europa.ec.eudi.verifier.endpoint.domain.TransactionId
-import eu.europa.ec.eudi.verifier.endpoint.port.input.InitTransactionResponse
+import eu.europa.ec.eudi.verifier.endpoint.port.input.InitOpenId4VPOverRedirectsTransactionResponse
 import eu.europa.ec.eudi.verifier.endpoint.port.input.WalletResponseTO
 import eu.europa.ec.eudi.verifier.endpoint.port.out.presentation.ValidateVerifiablePresentation
 import kotlinx.coroutines.test.runTest
@@ -75,7 +75,7 @@ internal class WalletResponseDirectPostWithIdTokenAndVpTokenTest {
             // given
             val initTransaction = VerifierApiClient.loadInitTransactionTO("02-dcql.json")
             val transactionInitialized =
-                assertIs<InitTransactionResponse.JwtSecuredAuthorizationRequestTO>(
+                assertIs<InitOpenId4VPOverRedirectsTransactionResponse.JwtSecuredAuthorizationRequestTO>(
                     VerifierApiClient.initTransaction(client, initTransaction),
                 )
             val requestId =
@@ -112,7 +112,7 @@ internal class WalletResponseDirectPostWithIdTokenAndVpTokenTest {
                 // given
                 val initTransaction = VerifierApiClient.loadInitTransactionTO(dcqlQuery)
                 val transactionInitialized =
-                    assertIs<InitTransactionResponse.JwtSecuredAuthorizationRequestTO>(
+                    assertIs<InitOpenId4VPOverRedirectsTransactionResponse.JwtSecuredAuthorizationRequestTO>(
                         VerifierApiClient.initTransaction(client, initTransaction),
                     )
                 val presentationId = TransactionId(transactionInitialized.transactionId)
@@ -168,7 +168,7 @@ internal class WalletResponseDirectPostWithIdTokenAndVpTokenTest {
             // given
             val initTransaction = VerifierApiClient.loadInitTransactionTO("02-dcql.json")
             val transactionInitialized =
-                assertIs<InitTransactionResponse.JwtSecuredAuthorizationRequestTO>(
+                assertIs<InitOpenId4VPOverRedirectsTransactionResponse.JwtSecuredAuthorizationRequestTO>(
                     VerifierApiClient.initTransaction(client, initTransaction),
                 )
             val requestId =
@@ -196,7 +196,7 @@ internal class WalletResponseDirectPostWithIdTokenAndVpTokenTest {
         runTest {
             val initTransaction = VerifierApiClient.loadInitTransactionTO("04-dcql.json")
             val transactionInitialized =
-                assertIs<InitTransactionResponse.JwtSecuredAuthorizationRequestTO>(
+                assertIs<InitOpenId4VPOverRedirectsTransactionResponse.JwtSecuredAuthorizationRequestTO>(
                     VerifierApiClient.initTransaction(client, initTransaction),
                 )
             val presentationId = TransactionId(transactionInitialized.transactionId)
@@ -229,7 +229,7 @@ internal class WalletResponseDirectPostWithIdTokenAndVpTokenTest {
         runTest {
             val initTransaction = VerifierApiClient.loadInitTransactionTO("05-dcql.json")
             val transactionInitialized =
-                assertIs<InitTransactionResponse.JwtSecuredAuthorizationRequestTO>(
+                assertIs<InitOpenId4VPOverRedirectsTransactionResponse.JwtSecuredAuthorizationRequestTO>(
                     VerifierApiClient.initTransaction(client, initTransaction),
                 )
             val requestId =
@@ -257,7 +257,7 @@ internal class WalletResponseDirectPostWithIdTokenAndVpTokenTest {
         runTest {
             val initTransaction = VerifierApiClient.loadInitTransactionTO("05-dcql.json")
             val transactionInitialized =
-                assertIs<InitTransactionResponse.JwtSecuredAuthorizationRequestTO>(
+                assertIs<InitOpenId4VPOverRedirectsTransactionResponse.JwtSecuredAuthorizationRequestTO>(
                     VerifierApiClient.initTransaction(client, initTransaction),
                 )
             val presentationId = TransactionId(transactionInitialized.transactionId)

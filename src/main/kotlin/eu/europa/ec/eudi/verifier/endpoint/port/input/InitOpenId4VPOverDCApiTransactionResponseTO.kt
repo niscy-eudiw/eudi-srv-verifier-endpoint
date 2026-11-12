@@ -20,7 +20,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class InitDcApiTransactionResponseTO(
+data class InitOpenId4VPOverDCApiTransactionResponseTO(
     @Required
     @SerialName("request")
     val request: String,

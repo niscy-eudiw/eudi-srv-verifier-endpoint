@@ -44,21 +44,20 @@ internal data class RequestObject(
 context(verifierConfig: VerifierConfig)
 internal fun requestObjectFromDomain(
     issuedAt: Instant,
-    transactionData: NonEmptyList<TransactionData>?,
-    channel: Channel,
+    presentationType: PresentationType.OpenId4VP,
     query: DCQL,
     nonce: Nonce,
     walletIdentifier: Audience,
-    registrationCertificate: RegistrationCertificate,
 ): RequestObject {
     val scope = emptyList<String>()
     val responseType = listOf(OpenId4VPSpec.VP_TOKEN)
     val audience = walletIdentifier.toSingleAudienceList()
-    val transactionData = transactionData?.map { it.base64Url }
-    val verifierInfo = VerifierInfo(format = ETSI119472Part2.REGISTRATION_CERTIFICATE, data = registrationCertificate.value.serialize())
+    val transactionData = presentationType.transactionData?.map { it.base64Url }
+    val verifierInfo =
+        VerifierInfo(format = ETSI119472Part2.REGISTRATION_CERTIFICATE, data = presentationType.registrationCertificate.value.serialize())
 
-    return when (channel) {
-        is Channel.OverDcApi -> {
+    return when (presentationType) {
+        is PresentationType.OpenId4VP.OverDCApi -> {
             RequestObject(
                 verifierId = verifierConfig.verifierId,
                 scope = scope,
@@ -71,14 +70,14 @@ internal fun requestObjectFromDomain(
                 responseUri = null,
                 issuedAt = issuedAt,
                 transactionData = transactionData,
-                expectedOrigins = channel.expectedOrigins,
+                expectedOrigins = presentationType.expectedOrigins,
                 verifierInfo = listOf(verifierInfo),
             )
         }
 
-        is Channel.OverHttp -> {
-            when (channel.responseMode) {
-                ResponseMode.OverHttp.DirectPost -> {
+        is PresentationType.OpenId4VP.OverRedirects -> {
+            when (presentationType.responseMode) {
+                ResponseMode.OpenId4VP.OverRedirects.DirectPost -> {
                     RequestObject(
                         verifierId = verifierConfig.verifierId,
                         scope = scope,
@@ -86,9 +85,9 @@ internal fun requestObjectFromDomain(
                         responseType = responseType,
                         audience = audience,
                         nonce = nonce.value,
-                        state = channel.requestId.value,
+                        state = presentationType.requestId.value,
                         responseMode = OpenId4VPSpec.RESPONSE_MODE_DIRECT_POST,
-                        responseUri = verifierConfig.responseUriBuilder(channel.requestId),
+                        responseUri = verifierConfig.responseUriBuilder(presentationType.requestId),
                         issuedAt = issuedAt,
                         transactionData = transactionData,
                         expectedOrigins = null,
@@ -96,7 +95,7 @@ internal fun requestObjectFromDomain(
                     )
                 }
 
-                is ResponseMode.OverHttp.DirectPostJwt -> {
+                is ResponseMode.OpenId4VP.OverRedirects.DirectPostJwt -> {
                     RequestObject(
                         verifierId = verifierConfig.verifierId,
                         scope = scope,
@@ -104,9 +103,9 @@ internal fun requestObjectFromDomain(
                         responseType = responseType,
                         audience = audience,
                         nonce = nonce.value,
-                        state = channel.requestId.value,
+                        state = presentationType.requestId.value,
                         responseMode = OpenId4VPSpec.RESPONSE_MODE_DIRECT_POST_JWT,
-                        responseUri = verifierConfig.responseUriBuilder(channel.requestId),
+                        responseUri = verifierConfig.responseUriBuilder(presentationType.requestId),
                         issuedAt = issuedAt,
                         transactionData = transactionData,
                         expectedOrigins = null,

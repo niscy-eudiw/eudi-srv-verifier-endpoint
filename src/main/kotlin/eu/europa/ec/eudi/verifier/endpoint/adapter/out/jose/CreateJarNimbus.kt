@@ -52,29 +52,25 @@ class CreateJarNimbus(
 ) : CreateJar {
     override suspend fun invoke(
         issuedAt: Instant,
-        transactionData: NonEmptyList<TransactionData>?,
-        channel: Channel,
+        presentationType: PresentationType.OpenId4VP,
         query: DCQL,
         nonce: Nonce,
         walletNonce: String?,
         walletIdentifier: Audience,
         walletJarEncryptionRequirement: EncryptionRequirement,
-        registrationCertificate: RegistrationCertificate,
     ): Jwt =
         withContext(Dispatchers.Default) {
             val requestObject =
                 context(verifierConfig) {
                     requestObjectFromDomain(
                         issuedAt,
-                        transactionData,
-                        channel,
+                        presentationType,
                         query,
                         nonce,
                         walletIdentifier,
-                        registrationCertificate,
                     )
                 }
-            val responseMode = channel.responseMode
+            val responseMode = presentationType.responseMode
             val signedJar = sign(responseMode, requestObject, walletNonce)
             when (walletJarEncryptionRequirement) {
                 EncryptionRequirement.NotRequired -> signedJar.serialize()
@@ -104,7 +100,7 @@ class CreateJarNimbus(
                         }
                     }
                     type(JOSEObjectType(RFC9101.REQUEST_OBJECT_MEDIA_SUBTYPE))
-                    if (responseMode is ResponseMode.OverHttp) {
+                    if (responseMode is ResponseMode.OpenId4VP.OverRedirects) {
                         // ETSI TS 119 472-2 V1.2.1 - OIDFVP-HAIP-REDIRECTS_RO-03
                         customParam("iat", requestObject.issuedAt.epochSeconds)
                     }
@@ -192,8 +188,8 @@ class CreateJarNimbus(
         OIDCClientMetadata().apply {
             val ephemeralResponseEncryptionKey =
                 when (responseMode) {
-                    is ResponseMode.OverHttp.DirectPostJwt -> responseMode.ephemeralResponseEncryptionKey
-                    is ResponseMode.OverDcApi.DcApiJwt -> responseMode.ephemeralResponseEncryptionKey
+                    is ResponseMode.OpenId4VP.OverRedirects.DirectPostJwt -> responseMode.ephemeralResponseEncryptionKey
+                    is ResponseMode.OpenId4VP.OverDCApi.DCApiJwt -> responseMode.ephemeralResponseEncryptionKey
                     else -> null
                 }
 

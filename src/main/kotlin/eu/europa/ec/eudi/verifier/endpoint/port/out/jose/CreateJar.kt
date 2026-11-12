@@ -26,13 +26,11 @@ import kotlin.time.Instant
 fun interface CreateJar {
     suspend operator fun invoke(
         issuedAt: Instant,
-        transactionData: NonEmptyList<TransactionData>?,
-        channel: Channel,
+        presentationType: PresentationType.OpenId4VP,
         query: DCQL,
         nonce: Nonce,
         walletNonce: String?,
         walletIdentifier: Audience,
         walletJarEncryptionRequirement: EncryptionRequirement,
-        registrationCertificate: RegistrationCertificate,
     ): Jwt
 }

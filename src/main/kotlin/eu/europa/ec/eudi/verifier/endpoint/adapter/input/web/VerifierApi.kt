@@ -83,14 +83,14 @@ internal class VerifierApi(
                     IMAGE_PNG in accept -> Output.QrCode
                     else -> Output.Json
                 }
-            val input = request.awaitBody<InitTransactionTO>().copy(output = output)
+            val input = request.awaitBody<InitOpenId4VPOverRedirectsTransactionTO>().copy(output = output)
 
             logger.info("Handling InitTransaction nonce=${input.nonce} ... ")
             initTransaction(input)
         }.fold(
             transform = {
                 when (it) {
-                    is InitTransactionResponse.JwtSecuredAuthorizationRequestTO -> {
+                    is InitOpenId4VPOverRedirectsTransactionResponse.JwtSecuredAuthorizationRequestTO -> {
                         logger.info("Initiated transaction tx ${it.transactionId}")
                         val response =
                             when (version) {
@@ -107,7 +107,7 @@ internal class VerifierApi(
                             }.bodyValueAndAwait(response)
                     }
 
-                    is InitTransactionResponse.QrCode -> {
+                    is InitOpenId4VPOverRedirectsTransactionResponse.QrCode -> {
                         logger.info("Initiated transaction with qr image")
                         ok()
                             .contentType(IMAGE_PNG)
@@ -130,7 +130,7 @@ internal class VerifierApi(
 
     private suspend fun handleInitDCApiTransaction(request: ServerRequest): ServerResponse =
         effect {
-            val input = request.awaitBody<InitDcApiTransactionTO>()
+            val input = request.awaitBody<InitOpenId4VPOverDCApiTransactionTO>()
 
             logger.info("Handling InitDCApiTransaction nonce=${input.nonce} ... ")
             initTransaction(input)
@@ -223,7 +223,7 @@ internal class VerifierApi(
     }
 
     private suspend fun handleRetrieveDCApiPresentationRequest(req: ServerRequest): ServerResponse {
-        suspend fun found(response: InitDcApiTransactionResponseTO) = ok().json().bodyValueAndAwait(response)
+        suspend fun found(response: InitOpenId4VPOverDCApiTransactionResponseTO) = ok().json().bodyValueAndAwait(response)
 
         val transactionId = req.transactionId()
         logger.info("Handling RetrieveDcApiRequest for tx ${transactionId.value}")
@@ -381,7 +381,7 @@ private data class JwtSecuredAuthorizationRequestV1TO(
     @SerialName(OpenId4VPSpec.REQUEST_URI_METHOD) val requestUriMethod: RequestUriMethodTO?,
 ) {
     companion object {
-        fun from(to: InitTransactionResponse.JwtSecuredAuthorizationRequestTO) =
+        fun from(to: InitOpenId4VPOverRedirectsTransactionResponse.JwtSecuredAuthorizationRequestTO) =
             JwtSecuredAuthorizationRequestV1TO(
                 transactionId = to.transactionId,
                 clientId = to.clientId,

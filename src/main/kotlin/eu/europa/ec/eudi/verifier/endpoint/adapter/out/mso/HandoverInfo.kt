@@ -51,28 +51,34 @@ sealed interface HandoverInfo {
             presentation: Presentation.RequestObjectRetrieved,
             config: VerifierConfig,
         ): HandoverInfo =
-            when (presentation.channel) {
-                is Channel.OverDcApi -> {
+            when (presentation.presentationType) {
+                is PresentationType.OpenId4VP.OverDCApi -> {
                     OpenID4VPDCAPIHandoverInfo(
-                        origin = presentation.channel.origin,
+                        origin = presentation.presentationType.origin,
                         nonce = presentation.nonce,
                         ephemeralEncryptionKey =
-                            when (val responseMode = presentation.channel.responseMode) {
-                                is ResponseMode.OverDcApi.DcApiJwt -> responseMode.ephemeralResponseEncryptionKey.toPublicJWK()
+                            when (val responseMode = presentation.presentationType.responseMode) {
+                                is ResponseMode.OpenId4VP.OverDCApi.DCApiJwt -> responseMode.ephemeralResponseEncryptionKey.toPublicJWK()
                             },
                     )
                 }
 
-                is Channel.OverHttp -> {
+                is PresentationType.OpenId4VP.OverRedirects -> {
                     OpenID4VPHandoverInfo(
                         clientId = config.verifierId,
                         nonce = presentation.nonce,
                         ephemeralEncryptionKey =
-                            when (val responseMode = presentation.channel.responseMode) {
-                                ResponseMode.OverHttp.DirectPost -> null
-                                is ResponseMode.OverHttp.DirectPostJwt -> responseMode.ephemeralResponseEncryptionKey.toPublicJWK()
+                            when (val responseMode = presentation.presentationType.responseMode) {
+                                ResponseMode.OpenId4VP.OverRedirects.DirectPost -> {
+                                    null
+                                }
+
+                                is ResponseMode.OpenId4VP.OverRedirects.DirectPostJwt -> {
+                                    responseMode.ephemeralResponseEncryptionKey
+                                        .toPublicJWK()
+                                }
                             },
-                        responseUri = config.responseUriBuilder(presentation.channel.requestId),
+                        responseUri = config.responseUriBuilder(presentation.presentationType.requestId),
                     )
                 }
             }
