@@ -35,7 +35,7 @@ import java.security.interfaces.ECPublicKey
 
 fun EncryptionInfo.toListElement(): ListElement =
     listOf(
-        Iso180137.ENCRYPTION_INFO_ENCRYPTION_PROTOCOL.toDataElement(),
+        Iso180137.ENCRYPTION_PROTOCOL.toDataElement(),
         encryptionParameters.toMapElement(),
     ).toDataElement()
 
@@ -57,7 +57,7 @@ fun EncryptionInfo(value: ListElement): EncryptionInfo {
     }
 
     val encryptionProtocol = value.value[Iso180137.ENCRYPTION_INFO_ENCRYPTION_PROTOCOL_INDEX]
-    require(Iso180137.ENCRYPTION_INFO_ENCRYPTION_PROTOCOL.toDataElement() == encryptionProtocol) {
+    require(Iso180137.ENCRYPTION_PROTOCOL.toDataElement() == encryptionProtocol) {
         "Unexpected encryption protocol: $encryptionProtocol"
     }
 

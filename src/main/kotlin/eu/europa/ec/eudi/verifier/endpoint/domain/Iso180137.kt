@@ -20,8 +20,8 @@ package eu.europa.ec.eudi.verifier.endpoint.domain
  */
 object Iso180137 {
     const val DCAPI_PROTOCOL = "org.iso.mdoc"
-
     const val HANDOVER_IDENTIFIER = "dcapi"
+    const val ENCRYPTION_PROTOCOL: String = "dcapi"
 
     //
     // DC-API Request
@@ -30,7 +30,6 @@ object Iso180137 {
     const val DEVICE_REQUEST: String = "deviceRequest"
     const val ENCRYPTION_INFO: String = "encryptionInfo"
     const val ENCRYPTION_INFO_LIST_SIZE: Int = 2
-    const val ENCRYPTION_INFO_ENCRYPTION_PROTOCOL: String = "dcapi"
     const val ENCRYPTION_INFO_ENCRYPTION_PROTOCOL_INDEX: Int = 0
     const val ENCRYPTION_INFO_ENCRYPTION_PARAMETERS_INDEX: Int = 1
 
@@ -46,4 +45,14 @@ object Iso180137 {
 
     // KEM = DHKEM_P256
     const val ENCRYPTION_PARAMETERS_RECIPIENT_PUBLIC_KEY_CURVE: String = "P-256"
+
+    //
+    // Encrypted Response
+    //
+
+    const val ENCRYPTED_RESPONSE_LIST_SIZE: Int = 2
+    const val ENCRYPTED_RESPONSE_ENCRYPTION_PROTOCOL_INDEX: Int = 0
+    const val ENCRYPTED_RESPONSE_ENCRYPTED_DATA_INDEX: Int = 1
+    const val ENCRYPTED_RESPONSE_DATA_ENC: String = "enc"
+    const val ENCRYPTED_RESPONSE_DATA_CIPHER_TEXT: String = "cipherText"
 }
