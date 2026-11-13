@@ -27,7 +27,6 @@ fun interface CreateJar {
     suspend operator fun invoke(
         issuedAt: Instant,
         presentationType: PresentationType.OpenId4VP,
-        query: DCQL,
         nonce: Nonce,
         walletNonce: String?,
         walletIdentifier: Audience,

@@ -132,5 +132,6 @@ private fun log(e: PresentationEvent) {
         is PresentationEvent.AttestationStatusCheckSuccessful -> info("Attestation status check successful")
         is PresentationEvent.AttestationStatusCheckFailed -> warn("Attestation status check failed")
         is PresentationEvent.DcApiTransactionInitialized -> info("DC API transaction initialized")
+        is PresentationEvent.ISODCApiTransactionInitialized -> info("ISO DC API transaction initialized")
     }
 }

@@ -45,7 +45,6 @@ context(verifierConfig: VerifierConfig)
 internal fun requestObjectFromDomain(
     issuedAt: Instant,
     presentationType: PresentationType.OpenId4VP,
-    query: DCQL,
     nonce: Nonce,
     walletIdentifier: Audience,
 ): RequestObject {
@@ -61,7 +60,7 @@ internal fun requestObjectFromDomain(
             RequestObject(
                 verifierId = verifierConfig.verifierId,
                 scope = scope,
-                query = query,
+                query = presentationType.query,
                 responseType = responseType,
                 audience = audience,
                 nonce = nonce.value,
@@ -81,7 +80,7 @@ internal fun requestObjectFromDomain(
                     RequestObject(
                         verifierId = verifierConfig.verifierId,
                         scope = scope,
-                        query = query,
+                        query = presentationType.query,
                         responseType = responseType,
                         audience = audience,
                         nonce = nonce.value,
@@ -99,7 +98,7 @@ internal fun requestObjectFromDomain(
                     RequestObject(
                         verifierId = verifierConfig.verifierId,
                         scope = scope,
-                        query = query,
+                        query = presentationType.query,
                         responseType = responseType,
                         audience = audience,
                         nonce = nonce.value,

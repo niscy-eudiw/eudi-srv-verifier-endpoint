@@ -112,7 +112,10 @@ object VerifierApiClient {
                         .returnResult()
 
                 val qrCode = checkNotNull(response.responseBody)
-                val transactionId = checkNotNull(response.responseHeaders.getFirst(TRANSACTION_ID_HEADER))
+                val transactionId =
+                    TransactionId(
+                        checkNotNull(response.responseHeaders.getFirst(TRANSACTION_ID_HEADER)),
+                    )
                 val authorizationRequestUri = checkNotNull(response.responseHeaders.getFirst(VerifierApi.AUTHORIZATION_REQUEST_URI_HEADER))
 
                 InitOpenId4VPOverRedirectsTransactionResponse.QrCode(qrCode, transactionId, authorizationRequestUri)

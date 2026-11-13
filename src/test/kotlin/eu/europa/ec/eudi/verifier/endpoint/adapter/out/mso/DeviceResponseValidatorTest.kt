@@ -35,6 +35,7 @@ import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.toInstant
 import org.springframework.core.io.DefaultResourceLoader
 import java.io.InputStream
+import java.net.URI
 import java.net.URL
 import java.security.KeyStore
 import java.security.cert.X509Certificate
@@ -307,7 +308,7 @@ private fun deviceSignedHandoverInfo(): HandoverInfo {
         clientId = verifierId,
         nonce = Nonce("nonce"),
         ephemeralEncryptionKey = null,
-        responseUri = URL("https://example.com/direct_post"),
+        responseUri = URI.create("https://example.com/direct_post").toURL(),
     )
 }
 

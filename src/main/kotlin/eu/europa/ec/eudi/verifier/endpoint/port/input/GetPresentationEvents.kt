@@ -129,6 +129,10 @@ private fun toTransferObject(event: PresentationEvent) =
                 put("response", event.response.json())
                 put("profile", event.profile.json())
             }
+
+            is PresentationEvent.ISODCApiTransactionInitialized -> {
+                put("request", event.request.json())
+            }
         }
     }
 
@@ -144,6 +148,7 @@ private fun JsonObjectBuilder.putEventNameAndActor(e: PresentationEvent) {
         when (e) {
             is PresentationEvent.TransactionInitialized -> "Transaction initialized" to Actor.Verifier
             is PresentationEvent.DcApiTransactionInitialized -> "DC Api Transaction initialized" to Actor.Verifier
+            is PresentationEvent.ISODCApiTransactionInitialized -> "ISO DC Api Transaction initialized" to Actor.Verifier
             is PresentationEvent.RequestObjectRetrieved -> "Request object retrieved" to Actor.Wallet
             is PresentationEvent.FailedToRetrieveRequestObject -> "FailedToRetrieve request" to Actor.Wallet
             is PresentationEvent.WalletResponsePosted -> "Wallet response posted" to Actor.Wallet
@@ -212,4 +217,4 @@ private fun Profile.json(): String =
         Profile.ETSI119472Part2 -> "etsi119472part2"
     }
 
-private inline fun <reified A> A.json() = Json.encodeToJsonElement(this)
+private inline fun <reified A> A.json(): JsonElement = Json.encodeToJsonElement(this)

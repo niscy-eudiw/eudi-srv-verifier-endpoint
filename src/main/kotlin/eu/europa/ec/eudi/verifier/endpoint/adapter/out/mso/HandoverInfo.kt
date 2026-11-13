@@ -16,6 +16,7 @@
 package eu.europa.ec.eudi.verifier.endpoint.adapter.out.mso
 
 import com.eygraber.uri.Url
+import com.nimbusds.jose.jwk.ECKey
 import com.nimbusds.jose.jwk.JWK
 import eu.europa.ec.eudi.verifier.endpoint.domain.*
 import java.net.URL
@@ -43,6 +44,16 @@ sealed interface HandoverInfo {
             if (null != ephemeralEncryptionKey) {
                 require(!ephemeralEncryptionKey.isPrivate) { "ephemeralEncryptionKey must not be private" }
             }
+        }
+    }
+
+    data class ISODCApiHandoverInfo(
+        val nonce: Nonce,
+        val ephemeralEncryptionKey: ECKey,
+        val origin: Url,
+    ) : HandoverInfo {
+        init {
+            require(!ephemeralEncryptionKey.isPrivate) { "ephemeralEncryptionKey must not be private" }
         }
     }
 
@@ -79,6 +90,16 @@ sealed interface HandoverInfo {
                                 }
                             },
                         responseUri = config.responseUriBuilder(presentation.presentationType.requestId),
+                    )
+                }
+
+                is PresentationType.ISO.OverDCApi -> {
+                    ISODCApiHandoverInfo(
+                        nonce = presentation.nonce,
+                        ephemeralEncryptionKey =
+                            presentation.presentationType.responseMode.ephemeralResponseEncryptionKey
+                                .toPublicJWK(),
+                        origin = presentation.presentationType.origin,
                     )
                 }
             }

@@ -19,6 +19,10 @@ package eu.europa.ec.eudi.verifier.endpoint.domain
  * [Personal identification — ISO-compliant driving licence — Part 7: Mobile driving licence (mDL) add-on functions](https://github.com/ISOWG10/ISO-18013/blob/main/Working%20Documents/Working%20Draft%20WG%2010_N2544_18013-7%20second%20edition%20DTS%20candidate%20-%20NTC.pdf)
  */
 object Iso180137 {
+    const val DCAPI_PROTOCOL = "org.iso.mdoc"
+
+    const val HANDOVER_IDENTIFIER = "dcapi"
+
     //
     // DC-API Request
     //

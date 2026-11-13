@@ -53,6 +53,7 @@ import eu.europa.ec.eudi.verifier.endpoint.port.input.InitOpenId4VPOverRedirects
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import net.minidev.json.JSONObject
+import java.net.URI
 import java.net.URL
 import java.util.*
 import kotlin.test.*
@@ -67,7 +68,7 @@ class CreateJarNimbusTest {
         VerifierConfig(
             verifierId = verifierId,
             requestJarOption = EmbedOption.ByValue,
-            responseUriBuilder = { _ -> URL("https://foo") },
+            responseUriBuilder = { _ -> URI.create("https://foo").toURL() },
             defaultHttpResponseModeOption = HttpResponseModeOption.DirectPostJwt,
             maxAge = 3.days,
             clientMetaData = clientMetaData,
@@ -99,7 +100,7 @@ class CreateJarNimbusTest {
                 scope = listOf("openid"),
                 nonce = UUID.randomUUID().toString(),
                 responseMode = "direct_post.jwt",
-                responseUri = URL("https://foo"),
+                responseUri = URI.create("https://foo").toURL(),
                 state = TestContext.testRequestId.value,
                 audience = emptyList(),
                 issuedAt = TestContext.testClock.now(),
@@ -152,6 +153,7 @@ class CreateJarNimbusTest {
         val presentationType =
             PresentationType.OpenId4VP.OverRedirects(
                 responseMode = ResponseMode.OpenId4VP.OverRedirects.DirectPost,
+                query = query,
                 requestUriMethod = RequestUriMethod.Post,
                 getWalletResponseMethod = GetWalletResponseMethod.Poll,
                 requestId = TestContext.testRequestId,
@@ -162,7 +164,6 @@ class CreateJarNimbusTest {
         return createJar(
             issuedAt = TestContext.testClock.now(),
             presentationType = presentationType,
-            query = query,
             nonce = Nonce("test-nonce"),
             walletNonce = null,
             walletIdentifier = walletIdentifier,

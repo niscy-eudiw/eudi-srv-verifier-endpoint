@@ -99,7 +99,7 @@ internal class VerifierApi(
                             }
                         ok()
                             .json()
-                            .header(TRANSACTION_ID_HEADER, it.transactionId)
+                            .header(TRANSACTION_ID_HEADER, it.transactionId.value)
                             .apply {
                                 if (VerifierApiVersion.V2 == version) {
                                     header(AUTHORIZATION_REQUEST_URI_HEADER, it.authorizationRequestUri)
@@ -111,7 +111,7 @@ internal class VerifierApi(
                         logger.info("Initiated transaction with qr image")
                         ok()
                             .contentType(IMAGE_PNG)
-                            .header(TRANSACTION_ID_HEADER, it.transactionId)
+                            .header(TRANSACTION_ID_HEADER, it.transactionId.value)
                             .header(AUTHORIZATION_REQUEST_URI_HEADER, it.authorizationRequestUri)
                             .bodyValueAndAwait(it.qrCode)
                     }
@@ -137,7 +137,7 @@ internal class VerifierApi(
         }.fold(
             transform = {
                 ok()
-                    .header(TRANSACTION_ID_HEADER, it.transactionId)
+                    .header(TRANSACTION_ID_HEADER, it.transactionId.value)
                     .json()
                     .bodyValueAndAwait(it)
             },
@@ -361,6 +361,10 @@ internal class VerifierApi(
                     ValidationError.HaipNotSupported.AuthorizationRequestMustBeProvidedByReference -> {
                         "HaipNotSupported.AuthorizationRequestMustBeProvidedByReference"
                     }
+
+                    ValidationError.InsufficientNonceEntropy -> {
+                        "InsufficientNonceEntropy"
+                    }
                 }
             return badRequest().json().bodyValueAndAwait(mapOf("error" to error))
         }
@@ -374,7 +378,7 @@ private enum class VerifierApiVersion {
 
 @Serializable
 private data class JwtSecuredAuthorizationRequestV1TO(
-    @Required @SerialName("transaction_id") val transactionId: String,
+    @Required @SerialName("transaction_id") val transactionId: TransactionId,
     @Required @SerialName(RFC6749.CLIENT_ID) val clientId: ClientId,
     @SerialName(RFC9101.REQUEST) val request: String?,
     @SerialName(RFC9101.REQUEST_URI) val requestUri: String?,

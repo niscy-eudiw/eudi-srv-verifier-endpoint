@@ -26,6 +26,7 @@ import eu.europa.ec.eudi.verifier.endpoint.adapter.out.jose.CreateJarNimbus
 import eu.europa.ec.eudi.verifier.endpoint.adapter.out.jose.GenerateEphemeralEncryptionKeyPairNimbus
 import eu.europa.ec.eudi.verifier.endpoint.adapter.out.keystore.loadJWK
 import eu.europa.ec.eudi.verifier.endpoint.adapter.out.keystore.loadKeyStore
+import eu.europa.ec.eudi.verifier.endpoint.adapter.out.mso.dcapi.CreateDCApiRequestWaltID
 import eu.europa.ec.eudi.verifier.endpoint.adapter.out.persistence.PresentationInMemoryRepo
 import eu.europa.ec.eudi.verifier.endpoint.adapter.out.qrcode.GenerateQrCodeFromData
 import eu.europa.ec.eudi.verifier.endpoint.adapter.out.x509.ParsePemEncodedX509CertificatesWithNimbus
@@ -88,6 +89,7 @@ object TestContext {
     private val storePresentation = repo.storePresentation
     private val generateEphemeralKey = GenerateEphemeralEncryptionKeyPairNimbus(responseEncryptionOption)
     private val generateQrCode = GenerateQrCodeFromData
+    private val createDCApiRequest = CreateDCApiRequestWaltID(verifierId)
 
     fun initTransaction(
         verifierConfig: VerifierConfig,
@@ -106,6 +108,7 @@ object TestContext {
             repo.publishPresentationEvent,
             ParsePemEncodedX509CertificatesWithNimbus,
             generateQrCode,
+            createDCApiRequest,
         )
 }
 

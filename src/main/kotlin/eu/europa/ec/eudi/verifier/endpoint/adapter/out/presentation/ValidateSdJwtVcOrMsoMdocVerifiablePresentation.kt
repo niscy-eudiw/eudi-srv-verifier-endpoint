@@ -68,6 +68,7 @@ internal class ValidateSdJwtVcOrMsoMdocVerifiablePresentation(
                     when (presentation.presentationType) {
                         is PresentationType.OpenId4VP.OverDCApi -> "origin:${presentation.presentationType.origin}"
                         is PresentationType.OpenId4VP.OverRedirects -> config.verifierId.clientId
+                        is PresentationType.ISO.OverDCApi -> TODO()
                     }
                 validator.validateSdJwtVcVerifiablePresentation(
                     vpFormatSupported,

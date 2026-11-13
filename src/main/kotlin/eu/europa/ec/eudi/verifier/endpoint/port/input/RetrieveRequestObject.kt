@@ -154,7 +154,6 @@ class RetrieveRequestObjectLive(
                 createJar(
                     clock.now(),
                     presentation.presentationType,
-                    presentation.query,
                     presentation.nonce,
                     method.walletNonceOrNull,
                     walletIdentifier,
@@ -235,7 +234,7 @@ private class WalletMetadataValidator(
     ) {
         val walletSupportedVpFormats = metadata.vpFormatsSupported
         val queryRequiredFormats =
-            presentation.query.credentials.value
+            presentation.presentationType.query.credentials.value
                 .map { it.format }
                 .toSet()
 

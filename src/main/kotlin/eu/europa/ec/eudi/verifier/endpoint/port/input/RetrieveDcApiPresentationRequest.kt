@@ -44,6 +44,6 @@ class RetrieveDcApiPresentationRequestLive(
 
         val dcApiEvent = events.filterIsInstance<PresentationEvent.DcApiTransactionInitialized>().first()
 
-        return QueryResponse.Found(InitOpenId4VPOverDCApiTransactionResponseTO(dcApiEvent.response, transactionId.value))
+        return QueryResponse.Found(InitOpenId4VPOverDCApiTransactionResponseTO(dcApiEvent.response, transactionId))
     }
 }

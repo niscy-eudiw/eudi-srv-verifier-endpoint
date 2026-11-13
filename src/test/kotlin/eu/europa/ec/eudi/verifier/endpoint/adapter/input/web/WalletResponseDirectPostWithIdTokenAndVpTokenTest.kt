@@ -115,7 +115,7 @@ internal class WalletResponseDirectPostWithIdTokenAndVpTokenTest {
                     assertIs<InitOpenId4VPOverRedirectsTransactionResponse.JwtSecuredAuthorizationRequestTO>(
                         VerifierApiClient.initTransaction(client, initTransaction),
                     )
-                val presentationId = TransactionId(transactionInitialized.transactionId)
+                val presentationId = transactionInitialized.transactionId
                 val requestId =
                     RequestId(transactionInitialized.requestUri?.removePrefix("http://localhost:0/wallet/request.jwt/")!!)
                 WalletApiClient.retrieveRequestObjectResponse(client, transactionInitialized.requestUri)
@@ -199,7 +199,7 @@ internal class WalletResponseDirectPostWithIdTokenAndVpTokenTest {
                 assertIs<InitOpenId4VPOverRedirectsTransactionResponse.JwtSecuredAuthorizationRequestTO>(
                     VerifierApiClient.initTransaction(client, initTransaction),
                 )
-            val presentationId = TransactionId(transactionInitialized.transactionId)
+            val presentationId = transactionInitialized.transactionId
             val requestId = RequestId(transactionInitialized.requestUri?.removePrefix("http://localhost:0/wallet/request.jwt/")!!)
             WalletApiClient.retrieveRequestObjectResponse(client, transactionInitialized.requestUri)
 
@@ -260,7 +260,7 @@ internal class WalletResponseDirectPostWithIdTokenAndVpTokenTest {
                 assertIs<InitOpenId4VPOverRedirectsTransactionResponse.JwtSecuredAuthorizationRequestTO>(
                     VerifierApiClient.initTransaction(client, initTransaction),
                 )
-            val presentationId = TransactionId(transactionInitialized.transactionId)
+            val presentationId = transactionInitialized.transactionId
             val requestId =
                 RequestId(
                     transactionInitialized.requestUri

@@ -21,4 +21,12 @@ package eu.europa.ec.eudi.verifier.endpoint.domain
 object Iso180135 {
     const val KEY_AUTHORIZATIONS_NAMESPACES: String = "nameSpaces"
     const val KEY_AUTHORIZATIONS_DATA_ELEMENTS: String = "dataElements"
+
+    // ISO/IEC 18013-5:2021 allowed Curved supported by Nimbus ECKeys
+    val READER_AUTHENTICATION_KEY_PAIR_SUPPORTED_CURVES =
+        listOf(
+            "P-256",
+            "P-384",
+            "P-521",
+        )
 }

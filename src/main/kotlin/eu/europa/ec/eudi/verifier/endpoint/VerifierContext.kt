@@ -45,6 +45,7 @@ import eu.europa.ec.eudi.verifier.endpoint.adapter.out.mso.DeviceResponseValidat
 import eu.europa.ec.eudi.verifier.endpoint.adapter.out.mso.DocumentValidator
 import eu.europa.ec.eudi.verifier.endpoint.adapter.out.mso.IssuerSignedItemsShouldBe
 import eu.europa.ec.eudi.verifier.endpoint.adapter.out.mso.ValidityInfoShouldBe
+import eu.europa.ec.eudi.verifier.endpoint.adapter.out.mso.dcapi.CreateDCApiRequestWaltID
 import eu.europa.ec.eudi.verifier.endpoint.adapter.out.persistence.PresentationInMemoryRepo
 import eu.europa.ec.eudi.verifier.endpoint.adapter.out.presentation.ValidateSdJwtVcOrMsoMdocVerifiablePresentation
 import eu.europa.ec.eudi.verifier.endpoint.adapter.out.qrcode.GenerateQrCodeFromData
@@ -162,6 +163,11 @@ internal class AppBeans :
         // X509
         registerBean { ParsePemEncodedX509CertificatesWithNimbus }
 
+        // ISO
+        registerBean {
+            CreateDCApiRequestWaltID(bean<VerifierConfig>().verifierId)
+        }
+
         //
         // Use cases
         //
@@ -175,6 +181,7 @@ internal class AppBeans :
                 bean(),
                 bean(),
                 WalletApi.requestJwtByReference(env.publicUrl()),
+                bean(),
                 bean(),
                 bean(),
                 bean(),

@@ -31,6 +31,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.io.bytestring.decodeToByteString
 import kotlinx.io.bytestring.decodeToString
 import kotlinx.serialization.json.*
+import java.net.URI
 import java.net.URL
 import kotlin.test.*
 import kotlin.time.Duration.Companion.days
@@ -38,7 +39,7 @@ import kotlin.time.Duration.Companion.days
 class InitTransactionTest {
     private val testTransactionId = TestContext.testTransactionId
 
-    private val uri = URL("https://foo")
+    private val uri = URI.create("https://foo").toURL()
     private val verifierConfig =
         VerifierConfig(
             verifierId = TestContext.verifierId,
@@ -90,13 +91,13 @@ class InitTransactionTest {
     @Test
     fun `when request option is embed by ref, request_uri should be present and presentation should be Requested`() =
         runTest {
-            val uri = URL("https://foo")
+            val uri = URI.create("https://foo").toURL()
             val wrprc = TestUtils.loadResource("wrprc.jwt")
             val verifierConfig =
                 VerifierConfig(
                     verifierId = TestContext.verifierId,
                     requestJarOption = EmbedOption.ByReference { _ -> uri },
-                    responseUriBuilder = { _ -> URL("https://foo") },
+                    responseUriBuilder = { _ -> URI.create("https://foo").toURL() },
                     defaultHttpResponseModeOption = HttpResponseModeOption.DirectPostJwt,
                     maxAge = 3.days,
                     clientMetaData = TestContext.clientMetaData,

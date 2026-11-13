@@ -118,7 +118,7 @@ internal class WalletResponseDirectPostJwtValidationsDisabledTest {
                     RequestId(transactionInitialized.requestUri?.removePrefix("http://localhost:0/wallet/request.jwt/")!!)
                 val requestObjectJsonResponse: JsonObject =
                     WalletApiClient.retrieveRequestObjectResponse(client, transactionInitialized.requestUri)
-                val transactionId = TransactionId(transactionInitialized.transactionId)
+                val transactionId = transactionInitialized.transactionId
 
                 val supportedEncryptionMethods = assertNotNull(requestObjectJsonResponse.supportedEncryptionMethods())
                 assertEquals(config.clientMetaData.responseEncryptionOption.encryptionMethods, supportedEncryptionMethods)
@@ -291,7 +291,7 @@ internal class WalletResponseDirectPostJwtValidationsEnabledTest {
                 )
             assertEquals(
                 expectedWalletResponseTO,
-                VerifierApiClient.getWalletResponse(client, TransactionId(transactionDetails.transactionId)),
+                VerifierApiClient.getWalletResponse(client, transactionDetails.transactionId),
             )
         }
 }
@@ -378,7 +378,7 @@ internal class SdJwtVcStatusListValidationTest {
             )
 
             val walletResponse =
-                assertNotNull(VerifierApiClient.getWalletResponse(client, TransactionId(transactionDetails.transactionId)))
+                assertNotNull(VerifierApiClient.getWalletResponse(client, transactionDetails.transactionId))
             val vpToken = assertNotNull(walletResponse.vpToken)
             val sampleCredential = assertIs<JsonArray>(vpToken["sample_credential"])
             assertEquals(1, sampleCredential.size)
@@ -578,7 +578,7 @@ internal class DeviceResponseValidationTest {
                 assertNotNull(
                     VerifierApiClient.getWalletResponse(
                         client,
-                        TransactionId(transactionDetails.transactionId),
+                        transactionDetails.transactionId,
                     ),
                 )
 

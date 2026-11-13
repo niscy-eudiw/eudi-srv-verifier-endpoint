@@ -140,53 +140,61 @@ private suspend fun AuthorisationResponseTO.verifiablePresentations(
 ): VerifiablePresentations {
     ensureNotNull(vpToken) { MissingVpToken }
 
-    suspend fun JsonObject.toVerifiablePresentations(): Map<QueryId, List<VerifiablePresentation>> {
-        val vpToken =
-            try {
-                Json.decodeFromJsonElement<Map<QueryId, List<JsonElement>>>(this)
-            } catch (e: Exception) {
-                raise(InvalidVpToken("Failed to decode vp_token", e))
+    return when (val presentationType = presentation.presentationType) {
+        is PresentationType.OpenId4VP -> {
+            suspend fun JsonObject.toVerifiablePresentations(): Map<QueryId, List<VerifiablePresentation>> {
+                val vpToken =
+                    try {
+                        Json.decodeFromJsonElement<Map<QueryId, List<JsonElement>>>(this)
+                    } catch (e: Exception) {
+                        raise(InvalidVpToken("Failed to decode vp_token", e))
+                    }
+
+                val credentialQueries =
+                    presentationType.query.credentials.value
+                        .associateBy { it.id }
+                return vpToken.mapValues { (queryId, value) ->
+                    val format =
+                        credentialQueries[queryId]?.format
+                            ?: raise(
+                                InvalidVpToken(
+                                    "vp_token references non-existing Credential Query",
+                                    null,
+                                ),
+                            )
+                    val unvalidatedVerifiablePresentations = value.map { it.toVerifiablePresentation(format) }
+                    val applicableTransactionData =
+                        presentationType.transactionData
+                            ?.filter { queryId.value in it.credentialIds }
+                            ?.toNonEmptyListOrNull()
+                    ensure(vpFormatsSupported.supports(format)) {
+                        InvalidVpToken(
+                            "vp_token contains a Verifiable Presentation in an unsupported format",
+                            null,
+                        )
+                    }
+                    unvalidatedVerifiablePresentations.map {
+                        validateVerifiablePresentation(
+                            presentation,
+                            it,
+                            applicableTransactionData,
+                        )
+                    }
+                }
             }
 
-        val credentialQueries =
-            presentation.query.credentials.value
-                .associateBy { it.id }
-        return vpToken.mapValues { (queryId, value) ->
-            val format =
-                credentialQueries[queryId]?.format
-                    ?: raise(
-                        InvalidVpToken(
-                            "vp_token references non-existing Credential Query",
-                            null,
-                        ),
-                    )
-            val unvalidatedVerifiablePresentations = value.map { it.toVerifiablePresentation(format) }
-            val applicableTransactionData =
-                presentation.transactionDataOrNull
-                    ?.filter { queryId.value in it.credentialIds }
-                    ?.toNonEmptyListOrNull()
-            ensure(vpFormatsSupported.supports(format)) {
-                InvalidVpToken(
-                    "vp_token contains a Verifiable Presentation in an unsupported format",
-                    null,
-                )
+            val verifiablePresentations = vpToken.toVerifiablePresentations()
+            ensure(presentationType.query.satisfiedBy(verifiablePresentations)) {
+                RequiredCredentialSetNotSatisfied
             }
-            unvalidatedVerifiablePresentations.map {
-                validateVerifiablePresentation(
-                    presentation,
-                    it,
-                    applicableTransactionData,
-                )
-            }
+
+            return VerifiablePresentations(verifiablePresentations)
+        }
+
+        else -> {
+            TODO()
         }
     }
-
-    val verifiablePresentations = vpToken.toVerifiablePresentations()
-    ensure(presentation.query.satisfiedBy(verifiablePresentations)) {
-        RequiredCredentialSetNotSatisfied
-    }
-
-    return VerifiablePresentations(verifiablePresentations)
 }
 
 context(_: Raise<WalletResponseValidationError>)
@@ -336,6 +344,10 @@ class PostWalletResponseLive(
                 is PresentationType.OpenId4VP.OverDCApi -> {
                     null
                 }
+
+                is PresentationType.ISO.OverDCApi -> {
+                    null
+                }
             }
         return submitted to accepted
     }
@@ -413,7 +425,7 @@ class PostWalletResponseLive(
                                     UnexpectedResponseMode(
                                         null,
                                         expected = ResponseModeType.DCApiJwt,
-                                        actual = ResponseModeType.DcApi,
+                                        actual = ResponseModeType.DCApi,
                                     )
                                 }
                                 walletResponse.response
@@ -440,6 +452,10 @@ class PostWalletResponseLive(
                     }
                 }
             }
+
+            is PresentationType.ISO.OverDCApi -> {
+                TODO()
+            }
         }
 
     context(_: Raise<WalletResponseValidationError>)
@@ -458,6 +474,10 @@ class PostWalletResponseLive(
         val responseCode =
             when (val presentationType = presentation.presentationType) {
                 is PresentationType.OpenId4VP.OverDCApi -> {
+                    null
+                }
+
+                is PresentationType.ISO.OverDCApi -> {
                     null
                 }
 
@@ -514,7 +534,7 @@ private val AuthorisationResponse.responseModeType: ResponseModeType
         when (this) {
             is AuthorisationResponse.DirectPost -> ResponseModeType.DirectPost
             is AuthorisationResponse.DirectPostJwt -> ResponseModeType.DirectPostJwt
-            is AuthorisationResponse.DcApi -> ResponseModeType.DcApi
+            is AuthorisationResponse.DcApi -> ResponseModeType.DCApi
             is AuthorisationResponse.DcApiJwt -> ResponseModeType.DCApiJwt
         }
 private val AuthorisationResponse.encryptedResponseOrNull: Jwt?
@@ -548,6 +568,12 @@ private val RequestObjectRetrieved.ephemeralResponseEncryptionKeyOrNull: JWK?
             is PresentationType.OpenId4VP.OverDCApi -> {
                 when (val responseMode = presentationType.responseMode) {
                     is ResponseMode.OpenId4VP.OverDCApi.DCApiJwt -> responseMode.ephemeralResponseEncryptionKey
+                }
+            }
+
+            is PresentationType.ISO.OverDCApi -> {
+                when (val responseMode = presentationType.responseMode) {
+                    is ResponseMode.ISO.OverDCApi.DCApi -> responseMode.ephemeralResponseEncryptionKey
                 }
             }
         }

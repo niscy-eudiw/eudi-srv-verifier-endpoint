@@ -16,14 +16,14 @@
 package eu.europa.ec.eudi.verifier.endpoint.domain.mso.dcapi
 
 import com.nimbusds.jose.jwk.ECKey
-import eu.europa.ec.eudi.verifier.endpoint.adapter.out.mso.dcapi.DCApiDeviceRequestSerializer
+import eu.europa.ec.eudi.verifier.endpoint.adapter.out.mso.dcapi.DCApiRequestSerializer
 import eu.europa.ec.eudi.verifier.endpoint.domain.Iso180137
 import eu.europa.ec.eudi.verifier.endpoint.domain.Nonce
 import id.walt.mdoc.dataretrieval.DeviceRequest
 import kotlinx.serialization.Serializable
 
-@Serializable(with = DCApiDeviceRequestSerializer::class)
-data class DCApiDeviceRequest(
+@Serializable(with = DCApiRequestSerializer::class)
+data class DCApiRequest(
     val deviceRequest: DeviceRequest,
     val encryptionInfo: EncryptionInfo,
 )

@@ -13,16 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package eu.europa.ec.eudi.verifier.endpoint.adapter.out.mso.dcapi
+package eu.europa.ec.eudi.verifier.endpoint.adapter.out.mso
 
 import COSE.OneKey
 import com.nimbusds.jose.jwk.Curve
 import com.nimbusds.jose.jwk.ECKey
 import com.upokecenter.cbor.CBORObject
-import eu.europa.ec.eudi.verifier.endpoint.adapter.out.mso.base64UrlNoPadding
 import eu.europa.ec.eudi.verifier.endpoint.domain.Iso180137
 import eu.europa.ec.eudi.verifier.endpoint.domain.Nonce
-import eu.europa.ec.eudi.verifier.endpoint.domain.mso.dcapi.DCApiDeviceRequest
 import eu.europa.ec.eudi.verifier.endpoint.domain.mso.dcapi.EncryptionInfo
 import eu.europa.ec.eudi.verifier.endpoint.domain.mso.dcapi.EncryptionParameters
 import id.walt.mdoc.dataelement.ByteStringElement
@@ -31,51 +29,11 @@ import id.walt.mdoc.dataelement.ListElement
 import id.walt.mdoc.dataelement.MapElement
 import id.walt.mdoc.dataelement.MapKey
 import id.walt.mdoc.dataelement.toDataElement
-import id.walt.mdoc.dataretrieval.DeviceRequest
-import kotlinx.serialization.KSerializer
-import kotlinx.serialization.Required
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.descriptors.SerialDescriptor
-import kotlinx.serialization.encoding.Decoder
-import kotlinx.serialization.encoding.Encoder
+import kotlinx.serialization.encodeToByteArray
 import java.security.interfaces.ECPrivateKey
 import java.security.interfaces.ECPublicKey
 
-object DCApiDeviceRequestSerializer : KSerializer<DCApiDeviceRequest> {
-    private val serializer = DCApiDeviceRequestDelegate.serializer()
-
-    override val descriptor: SerialDescriptor
-        get() = serializer.descriptor
-
-    override fun serialize(
-        encoder: Encoder,
-        value: DCApiDeviceRequest,
-    ) {
-        val delegate = DCApiDeviceRequestDelegate(value)
-        encoder.encodeSerializableValue(serializer, delegate)
-    }
-
-    override fun deserialize(decoder: Decoder): DCApiDeviceRequest {
-        val delegate = decoder.decodeSerializableValue(serializer)
-        return DCApiDeviceRequest(delegate)
-    }
-}
-
-@Serializable
-private data class DCApiDeviceRequestDelegate(
-    @Required @SerialName(Iso180137.DEVICE_REQUEST) val deviceRequest: String,
-    @Required @SerialName(Iso180137.ENCRYPTION_INFO) val encryptionInfo: String,
-) {
-    constructor(value: DCApiDeviceRequest) : this(
-        deviceRequest = base64UrlNoPadding.encode(value.deviceRequest.toCBOR()),
-        encryptionInfo = base64UrlNoPadding.encode(value.encryptionInfo.toCBOR()),
-    )
-}
-
-private fun EncryptionInfo.toCBOR(): ByteArray = toListElement().toCBOR()
-
-private fun EncryptionInfo.toListElement(): ListElement =
+fun EncryptionInfo.toListElement(): ListElement =
     listOf(
         Iso180137.ENCRYPTION_INFO_ENCRYPTION_PROTOCOL.toDataElement(),
         encryptionParameters.toMapElement(),
@@ -93,21 +51,7 @@ private fun ECKey.toMapElement(): MapElement = DataElement.fromCBOR(toOneKey().E
 
 private fun ECKey.toOneKey(): OneKey = OneKey(toECPublicKey(), toECPrivateKey())
 
-private fun DCApiDeviceRequest(value: DCApiDeviceRequestDelegate): DCApiDeviceRequest {
-    val deviceRequest =
-        DeviceRequest.fromCBOR(
-            base64UrlNoPadding.decode(value.deviceRequest),
-        )
-    val encryptionInfo =
-        EncryptionInfo(
-            DataElement.fromCBOR(
-                base64UrlNoPadding.decode(value.encryptionInfo),
-            ),
-        )
-    return DCApiDeviceRequest(deviceRequest, encryptionInfo)
-}
-
-private fun EncryptionInfo(value: ListElement): EncryptionInfo {
+fun EncryptionInfo(value: ListElement): EncryptionInfo {
     require(Iso180137.ENCRYPTION_INFO_LIST_SIZE == value.value.size) {
         "${Iso180137.ENCRYPTION_INFO} must be a list that contains exactly ${Iso180137.ENCRYPTION_INFO_LIST_SIZE} data elements"
     }
@@ -153,7 +97,7 @@ private fun EncryptionParameters(value: MapElement): EncryptionParameters {
     return EncryptionParameters(nonce, recipientPublicKey)
 }
 
-private fun OneKey(value: MapElement): OneKey = OneKey(CBORObject.DecodeFromBytes(value.toCBOR()))
+private fun OneKey(value: MapElement): OneKey = OneKey(CBORObject.DecodeFromBytes(cbor.encodeToByteArray(value)))
 
 private fun OneKey.toECKey(): ECKey {
     val publicKey = AsPublicKey()

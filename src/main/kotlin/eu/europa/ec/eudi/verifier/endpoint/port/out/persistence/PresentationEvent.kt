@@ -19,6 +19,7 @@ import eu.europa.ec.eudi.statium.StatusReference
 import eu.europa.ec.eudi.verifier.endpoint.domain.Jwt
 import eu.europa.ec.eudi.verifier.endpoint.domain.Profile
 import eu.europa.ec.eudi.verifier.endpoint.domain.TransactionId
+import eu.europa.ec.eudi.verifier.endpoint.domain.mso.dcapi.DCApiRequest
 import eu.europa.ec.eudi.verifier.endpoint.port.input.*
 import kotlinx.serialization.json.JsonObject
 import kotlin.time.Instant
@@ -39,6 +40,12 @@ sealed interface PresentationEvent {
         override val timestamp: Instant,
         val response: Jwt,
         val profile: Profile,
+    ) : PresentationEvent
+
+    data class ISODCApiTransactionInitialized(
+        override val transactionId: TransactionId,
+        override val timestamp: Instant,
+        val request: DCApiRequest,
     ) : PresentationEvent
 
     data class RequestObjectRetrieved(

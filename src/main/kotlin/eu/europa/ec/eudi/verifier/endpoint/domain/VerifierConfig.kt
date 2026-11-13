@@ -26,6 +26,7 @@ import com.nimbusds.jose.JWEAlgorithm
 import com.nimbusds.jose.JWSAlgorithm
 import com.nimbusds.jose.crypto.ECDHEncrypter
 import com.nimbusds.jose.crypto.factories.DefaultJWSSignerFactory
+import com.nimbusds.jose.jwk.ECKey
 import com.nimbusds.jose.jwk.JWK
 import eu.europa.ec.eudi.verifier.endpoint.adapter.out.digest.hash
 import eu.europa.ec.eudi.verifier.endpoint.adapter.out.encoding.base64UrlNoPadding
@@ -100,12 +101,27 @@ sealed interface ResponseMode {
             }
         }
     }
+
+    sealed interface ISO : ResponseMode {
+        sealed interface OverDCApi : ISO {
+            data class DCApi(
+                val ephemeralResponseEncryptionKey: ECKey,
+            ) : OverDCApi {
+                init {
+                    require(ephemeralResponseEncryptionKey.isPrivate)
+                    require(ephemeralResponseEncryptionKey.curve.name == Iso180137.ENCRYPTION_PARAMETERS_RECIPIENT_PUBLIC_KEY_CURVE) {
+                        "ephemeralResponseEncryptionKey must use curve ${Iso180137.ENCRYPTION_PARAMETERS_RECIPIENT_PUBLIC_KEY_CURVE}"
+                    }
+                }
+            }
+        }
+    }
 }
 
 enum class ResponseModeType {
     DirectPost,
     DirectPostJwt,
-    DcApi,
+    DCApi,
     DCApiJwt,
 }
 
@@ -113,7 +129,7 @@ fun ResponseModeType.name(): String =
     when (this) {
         ResponseModeType.DirectPost -> OpenId4VPSpec.RESPONSE_MODE_DIRECT_POST
         ResponseModeType.DirectPostJwt -> OpenId4VPSpec.RESPONSE_MODE_DIRECT_POST_JWT
-        ResponseModeType.DcApi -> OpenId4VPSpec.RESPONSE_MODE_DCAPI
+        ResponseModeType.DCApi -> OpenId4VPSpec.RESPONSE_MODE_DCAPI
         ResponseModeType.DCApiJwt -> OpenId4VPSpec.RESPONSE_MODE_DCAPI_JWT
     }
 
@@ -123,6 +139,7 @@ val ResponseMode.type: ResponseModeType
             is ResponseMode.OpenId4VP.OverDCApi.DCApiJwt -> ResponseModeType.DCApiJwt
             is ResponseMode.OpenId4VP.OverRedirects.DirectPost -> ResponseModeType.DirectPost
             is ResponseMode.OpenId4VP.OverRedirects.DirectPostJwt -> ResponseModeType.DirectPostJwt
+            is ResponseMode.ISO.OverDCApi.DCApi -> ResponseModeType.DCApi
         }
 
 data class ResponseEncryptionOption(

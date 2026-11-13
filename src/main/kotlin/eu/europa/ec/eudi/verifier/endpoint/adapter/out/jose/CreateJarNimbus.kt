@@ -15,7 +15,6 @@
  */
 package eu.europa.ec.eudi.verifier.endpoint.adapter.out.jose
 
-import arrow.core.NonEmptyList
 import com.nimbusds.jose.*
 import com.nimbusds.jose.crypto.ECDHEncrypter
 import com.nimbusds.jose.crypto.RSAEncrypter
@@ -53,7 +52,6 @@ class CreateJarNimbus(
     override suspend fun invoke(
         issuedAt: Instant,
         presentationType: PresentationType.OpenId4VP,
-        query: DCQL,
         nonce: Nonce,
         walletNonce: String?,
         walletIdentifier: Audience,
@@ -65,7 +63,6 @@ class CreateJarNimbus(
                     requestObjectFromDomain(
                         issuedAt,
                         presentationType,
-                        query,
                         nonce,
                         walletIdentifier,
                     )

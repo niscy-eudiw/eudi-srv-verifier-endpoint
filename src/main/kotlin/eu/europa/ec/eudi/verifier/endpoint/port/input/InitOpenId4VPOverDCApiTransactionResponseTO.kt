@@ -15,6 +15,7 @@
  */
 package eu.europa.ec.eudi.verifier.endpoint.port.input
 
+import eu.europa.ec.eudi.verifier.endpoint.domain.TransactionId
 import kotlinx.serialization.Required
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -26,5 +27,5 @@ data class InitOpenId4VPOverDCApiTransactionResponseTO(
     val request: String,
     @Required
     @SerialName("transaction_id")
-    val transactionId: String,
+    val transactionId: TransactionId,
 )

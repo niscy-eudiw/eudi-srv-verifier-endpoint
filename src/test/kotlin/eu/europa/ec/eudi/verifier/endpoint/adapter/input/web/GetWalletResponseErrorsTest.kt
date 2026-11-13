@@ -54,7 +54,7 @@ internal class GetWalletResponseErrorsTest {
                     VerifierApiClient.initTransaction(client, VerifierApiClient.loadInitTransactionTO("02-dcql.json")),
                 )
 
-            getWalletResponse(transactionDetails.transactionId)
+            getWalletResponse(transactionDetails.transactionId.value)
                 .expectStatus()
                 .isBadRequest()
                 .expectBody()
@@ -89,7 +89,7 @@ internal class GetWalletResponseErrorsTest {
                 }
             WalletApiClient.directPost(client, requestId, walletResponse)
 
-            getWalletResponse(transactionDetails.transactionId, responseCode = "not-the-issued-response-code")
+            getWalletResponse(transactionDetails.transactionId.value, responseCode = "not-the-issued-response-code")
                 .expectStatus()
                 .isBadRequest()
                 .expectBody()

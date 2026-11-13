@@ -23,11 +23,14 @@ import com.nimbusds.jose.JOSEObjectType
 import com.nimbusds.jose.crypto.ECDSAVerifier
 import com.nimbusds.jose.util.X509CertUtils
 import com.nimbusds.jwt.SignedJWT
+import eu.europa.ec.eudi.verifier.endpoint.domain.mso.DocumentRequest
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
 import java.security.cert.X509Certificate
 import java.security.interfaces.ECPublicKey
 import kotlin.time.Instant
 
+@Serializable
 @JvmInline
 value class TransactionId(
     val value: String,
@@ -61,6 +64,8 @@ value class Nonce(
     init {
         require(value.isNotBlank())
     }
+
+    companion object
 }
 
 typealias Jwt = String
@@ -158,13 +163,14 @@ sealed interface PresentationType {
 
     sealed interface OpenId4VP : PresentationType {
         override val responseMode: ResponseMode.OpenId4VP
-
+        val query: DCQL
         val transactionData: NonEmptyList<TransactionData>?
         val profile: Profile
         val registrationCertificate: RegistrationCertificate
 
         data class OverRedirects(
             override val responseMode: ResponseMode.OpenId4VP.OverRedirects,
+            override val query: DCQL,
             val requestUriMethod: RequestUriMethod,
             val getWalletResponseMethod: GetWalletResponseMethod,
             val requestId: RequestId,
@@ -175,6 +181,7 @@ sealed interface PresentationType {
 
         data class OverDCApi(
             override val responseMode: ResponseMode.OpenId4VP.OverDCApi,
+            override val query: DCQL,
             val origin: Url,
             val expectedOrigins: NonEmptyList<Url>,
             override val transactionData: NonEmptyList<TransactionData>?,
@@ -183,6 +190,17 @@ sealed interface PresentationType {
             override val profile: Profile
                 get() = Profile.ETSI119472Part2
         }
+    }
+
+    sealed interface ISO : PresentationType {
+        override val responseMode: ResponseMode.ISO
+        val documentRequests: NonEmptyList<DocumentRequest>
+
+        data class OverDCApi(
+            override val responseMode: ResponseMode.ISO.OverDCApi.DCApi,
+            override val documentRequests: NonEmptyList<DocumentRequest>,
+            val origin: Url,
+        ) : ISO
     }
 }
 
@@ -235,7 +253,6 @@ sealed interface Presentation {
         override val id: TransactionId,
         override val initiatedAt: Instant,
         override val presentationType: PresentationType.OpenId4VP.OverRedirects,
-        val query: DCQL,
         val nonce: Nonce,
         val issuerChain: NonEmptyList<X509Certificate>?,
     ) : Presentation
@@ -250,7 +267,6 @@ sealed interface Presentation {
         override val id: TransactionId,
         override val initiatedAt: Instant,
         override val presentationType: PresentationType,
-        val query: DCQL,
         val requestObjectRetrievedAt: Instant,
         val nonce: Nonce,
         val issuerChain: NonEmptyList<X509Certificate>?,
@@ -268,7 +284,6 @@ sealed interface Presentation {
                     requested.id,
                     requested.initiatedAt,
                     requested.presentationType,
-                    requested.query,
                     at,
                     requested.nonce,
                     requested.issuerChain,
@@ -377,16 +392,19 @@ val Presentation.transactionDataOrNull: NonEmptyList<TransactionData>?
     get() =
         when (val presentationType = presentationType) {
             is PresentationType.OpenId4VP -> presentationType.transactionData
+            is PresentationType.ISO -> null
         }
 
 val Presentation.profileOrNull: Profile?
     get() =
         when (val presentationType = presentationType) {
             is PresentationType.OpenId4VP -> presentationType.profile
+            is PresentationType.ISO -> null
         }
 
 val Presentation.registrationCertificateOrNull: RegistrationCertificate?
     get() =
         when (val presentationType = presentationType) {
             is PresentationType.OpenId4VP -> presentationType.registrationCertificate
+            is PresentationType.ISO -> null
         }
