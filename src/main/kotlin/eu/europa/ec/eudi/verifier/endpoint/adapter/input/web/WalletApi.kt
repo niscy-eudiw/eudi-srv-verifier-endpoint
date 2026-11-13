@@ -109,7 +109,7 @@ class WalletApi(
         effect {
             logger.info("Handling PostWalletResponse ...")
             val requestId = req.requestId()
-            val walletResponse = req.awaitFormData().walletResponse()
+            val walletResponse = req.awaitFormData().openId4VPOverRedirectsWalletResponse()
             postWalletResponse(PresentationLookup.ByRequestId(requestId), walletResponse)
         }.fold(
             transform = { response ->
@@ -183,8 +183,8 @@ class WalletApi(
                 }
             }
 
-        private fun MultiValueMap<String, String>.walletResponse(): AuthorisationResponse {
-            fun directPost(): AuthorisationResponse.DirectPost {
+        private fun MultiValueMap<String, String>.openId4VPOverRedirectsWalletResponse(): AuthorisationResponse.OpenId4VP.OverRedirects {
+            fun directPost(): AuthorisationResponse.OpenId4VP.OverRedirects.DirectPost {
                 fun String.toJsonObject(): JsonObject = Json.decodeFromString<JsonObject>(this)
 
                 return AuthorisationResponseTO(
@@ -192,12 +192,12 @@ class WalletApi(
                     vpToken = getFirst("vp_token")?.toJsonObject(),
                     error = getFirst("error"),
                     errorDescription = getFirst("error_description"),
-                ).run { AuthorisationResponse.DirectPost(this) }
+                ).run { AuthorisationResponse.OpenId4VP.OverRedirects.DirectPost(this) }
             }
 
             fun directPostJwt() =
                 getFirst("response")?.let { jwt ->
-                    AuthorisationResponse.DirectPostJwt(jwt)
+                    AuthorisationResponse.OpenId4VP.OverRedirects.DirectPostJwt(jwt)
                 }
 
             return directPostJwt() ?: directPost()
@@ -302,6 +302,14 @@ class WalletApi(
                     WalletResponseValidationError.HAIPValidationError.SdJwtVcMustUseTokenStatusList -> {
                         put("error", "HAIPValidationError.SdJwtVcMustUseTokenStatusList")
                         put("description", "SD-JWT VC must use Token Status List as revocation mechanism")
+                    }
+
+                    is WalletResponseValidationError.UnexpectedPresentationType -> {
+                        put("error", "UnexpectedPresentationType")
+                        val description =
+                            "Expected PresentationType of type ${expected.qualifiedName}, " +
+                                "but found ${actual.qualifiedName} instead"
+                        put("description", description)
                     }
                 }
             }

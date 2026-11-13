@@ -208,6 +208,10 @@ private fun WalletResponseValidationError.asText(): String =
         WalletResponseValidationError.HAIPValidationError.SdJwtVcMustUseTokenStatusList -> {
             "SD-JWT VC must use Token Status List as revocation mechanism"
         }
+
+        is WalletResponseValidationError.UnexpectedPresentationType -> {
+            "Unexpected PresentationType"
+        }
     }
 
 private fun Profile.json(): String =

@@ -1501,7 +1501,8 @@
           "InvalidEncryptedResponse",
           "HAIPValidationError.DeviceResponseContainsMoreThanOneMDoc",
           "HAIPValidationError.UnsupportedMsoRevocationMechanism",
-          "HAIPValidationError.SdJwtVcMustUseTokenStatusList"
+          "HAIPValidationError.SdJwtVcMustUseTokenStatusList",
+          "UnexpectedPresentationType"
         ]
       },
       "DcApiWalletResponseError": {

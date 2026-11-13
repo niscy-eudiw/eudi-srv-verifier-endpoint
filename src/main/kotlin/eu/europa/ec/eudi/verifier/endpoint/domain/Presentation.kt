@@ -115,14 +115,16 @@ value class VerifiablePresentations(
 }
 
 sealed interface WalletResponse {
-    data class VpToken(
-        val verifiablePresentations: VerifiablePresentations,
-    ) : WalletResponse
+    sealed interface OpenId4VP : WalletResponse {
+        data class VpToken(
+            val verifiablePresentations: VerifiablePresentations,
+        ) : OpenId4VP
 
-    data class Error(
-        val value: String,
-        val description: String?,
-    ) : WalletResponse
+        data class Error(
+            val value: String,
+            val description: String?,
+        ) : OpenId4VP
+    }
 }
 
 @JvmInline
@@ -304,6 +306,20 @@ sealed interface Presentation {
         val nonce: Nonce,
         val responseCode: ResponseCode?,
     ) : Presentation {
+        init {
+            when (presentationType) {
+                is PresentationType.OpenId4VP -> {
+                    require(walletResponse is WalletResponse.OpenId4VP) {
+                        "An OpenId4VP presentation requires an OpenId4VP Wallet Response"
+                    }
+                }
+
+                is PresentationType.ISO -> {
+                    // TODO
+                }
+            }
+        }
+
         companion object {
             context(_: Raise<String>)
             fun submitted(

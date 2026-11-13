@@ -133,13 +133,12 @@ fun ResponseModeType.name(): String =
         ResponseModeType.DCApiJwt -> OpenId4VPSpec.RESPONSE_MODE_DCAPI_JWT
     }
 
-val ResponseMode.type: ResponseModeType
+val ResponseMode.OpenId4VP.type: ResponseModeType
     get() =
         when (this) {
             is ResponseMode.OpenId4VP.OverDCApi.DCApiJwt -> ResponseModeType.DCApiJwt
             is ResponseMode.OpenId4VP.OverRedirects.DirectPost -> ResponseModeType.DirectPost
             is ResponseMode.OpenId4VP.OverRedirects.DirectPostJwt -> ResponseModeType.DirectPostJwt
-            is ResponseMode.ISO.OverDCApi.DCApi -> ResponseModeType.DCApi
         }
 
 data class ResponseEncryptionOption(

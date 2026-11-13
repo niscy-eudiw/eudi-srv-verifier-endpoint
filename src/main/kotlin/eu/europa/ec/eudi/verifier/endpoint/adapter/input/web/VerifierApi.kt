@@ -189,7 +189,7 @@ internal class VerifierApi(
         val transactionId = req.transactionId()
         return effect {
             logger.info("Handling PostDCApiWalletResponse for tx ${transactionId.value} ...")
-            val walletResponse = req.awaitFormData().walletResponse()
+            val walletResponse = req.awaitFormData().openId4VPOverDCApiWalletResponse()
             postWalletResponse(PresentationLookup.ByTransactionId(transactionId), walletResponse)
         }.fold(
             transform = { ok().buildAndAwait() },
@@ -200,8 +200,8 @@ internal class VerifierApi(
         )
     }
 
-    private fun MultiValueMap<String, String>.walletResponse(): AuthorisationResponse {
-        fun dcApi(): AuthorisationResponse.DcApi {
+    private fun MultiValueMap<String, String>.openId4VPOverDCApiWalletResponse(): AuthorisationResponse.OpenId4VP.OverDCApi {
+        fun dcApi(): AuthorisationResponse.OpenId4VP.OverDCApi.DCApi {
             fun String.toJsonObject(): JsonObject = Json.decodeFromString<JsonObject>(this)
 
             return AuthorisationResponseTO(
@@ -209,12 +209,12 @@ internal class VerifierApi(
                 vpToken = getFirst("vp_token")?.toJsonObject(),
                 error = getFirst("error"),
                 errorDescription = getFirst("error_description"),
-            ).run { AuthorisationResponse.DcApi(this) }
+            ).run { AuthorisationResponse.OpenId4VP.OverDCApi.DCApi(this) }
         }
 
         fun dcApiJwt() =
             getFirst("response")?.let { jwt ->
-                AuthorisationResponse.DcApiJwt(jwt)
+                AuthorisationResponse.OpenId4VP.OverDCApi.DCApiJwt(jwt)
             }
 
         return dcApiJwt() ?: dcApi()

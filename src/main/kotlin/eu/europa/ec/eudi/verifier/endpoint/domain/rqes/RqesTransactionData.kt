@@ -606,7 +606,7 @@ internal object URLStringSerializer : KSerializer<URL> {
         encoder.encodeString(value.toExternalForm())
     }
 
-    override fun deserialize(decoder: Decoder): URL = URL(decoder.decodeString())
+    override fun deserialize(decoder: Decoder): URL = URI.create(decoder.decodeString()).toURL()
 }
 
 /**

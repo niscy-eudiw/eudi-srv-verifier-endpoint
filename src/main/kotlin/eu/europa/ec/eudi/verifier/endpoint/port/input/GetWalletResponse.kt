@@ -54,13 +54,13 @@ internal fun WalletResponse.toTO(): WalletResponseTO {
         }
 
     return when (this) {
-        is WalletResponse.VpToken -> {
+        is WalletResponse.OpenId4VP.VpToken -> {
             WalletResponseTO(
                 vpToken = verifiablePresentations.toJsonObject(),
             )
         }
 
-        is WalletResponse.Error -> {
+        is WalletResponse.OpenId4VP.Error -> {
             WalletResponseTO(
                 error = value,
                 errorDescription = description,

@@ -193,7 +193,8 @@ class InitTransactionTest {
             assertNotNull(jwtSecuredAuthorizationRequest.request)
             val presentation = loadPresentationById(testTransactionId)
             val requestObjectRetrieved = assertIs<Presentation.RequestObjectRetrieved>(presentation)
-            assertEquals(ResponseModeType.DirectPost, requestObjectRetrieved.presentationType.responseMode.type)
+            val presentationType = assertIs<PresentationType.OpenId4VP>(requestObjectRetrieved.presentationType)
+            assertEquals(ResponseModeType.DirectPost, presentationType.responseMode.type)
         }
 
     /**
