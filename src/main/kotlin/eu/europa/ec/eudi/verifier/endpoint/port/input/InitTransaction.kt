@@ -906,7 +906,7 @@ data class InitOpenId4VPOverDCApiTransactionTO(
 
 @Serializable
 data class InitISOOverDCApiTransactionTO(
-    @Required @SerialName("documentRequests") val documentRequests: NonEmptyList<DocumentRequest>,
+    @Required @SerialName("document_requests") val documentRequests: NonEmptyList<DocumentRequest>,
     @Required @SerialName("nonce") val nonce: String,
     @SerialName("issuer_chain") val issuerChain: String? = null,
     @Required @SerialName("origin") val origin: Url,

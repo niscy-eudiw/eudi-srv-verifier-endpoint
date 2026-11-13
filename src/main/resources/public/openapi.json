@@ -250,6 +250,66 @@
         }
       }
     },
+    "/ui/presentations/iso/dc-api": {
+      "post": {
+        "tags": [
+          "verifier api"
+        ],
+        "description": "Initialize a new ISO DC API Transaction",
+        "operationId": "initializeISODCApiTransaction",
+        "requestBody": {
+          "description": "The details of the new ISO DC API Transaction.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InitISODCApiTransaction"
+              },
+              "examples": {
+                "InitISODCApiTransaction": {
+                  "$ref": "#/components/examples/InitISODCApiTransaction"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Ok",
+            "headers": {
+              "Transaction-Id": {
+                "$ref": "#/components/headers/Transaction-Id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InitISODCApiTransactionResponse"
+                },
+                "examples": {
+                  "InitISODCApiTransactionResponse": {
+                    "$ref": "#/components/examples/InitISODCApiTransactionResponse"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InitTransactionError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
     "/ui/presentations/{transactionId}": {
       "get": {
         "tags": [
@@ -1376,7 +1436,8 @@
           "HaipNotSupported.EncryptionAlgorithmECDHESMustBeSupported",
           "HaipNotSupported.EncryptionMethodsA128GCMAndA256GCMMustBeSupported",
           "HaipNotSupported.ResponseModeDirectPostJwtMustBeUsed",
-          "HaipNotSupported.AuthorizationRequestMustBeProvidedByReference"
+          "HaipNotSupported.AuthorizationRequestMustBeProvidedByReference",
+          "InsufficientNonceEntropy"
         ]
       },
       "InitTransactionError": {
@@ -2037,6 +2098,162 @@
           "docTypes"
         ],
         "additionalProperties": false
+      },
+      "InitISODCApiTransaction": {
+        "type": "object",
+        "nullable": false,
+        "properties": {
+          "document_requests": {
+            "allOf": [
+              {
+                "description": "Document Requests to be included in the ISO DC API Request."
+              },
+              {
+                "$ref": "#/components/schemas/ISODocumentRequests"
+              }
+            ]
+          },
+          "nonce": {
+            "allOf": [
+              {
+                "description": "Nonce value to be included in the ISO DC API Request."
+              },
+              {
+                "$ref": "#/components/schemas/Nonce"
+              },
+              {
+                "minLength": 16
+              }
+            ]
+          },
+          "issuer_chain": {
+            "allOf": [
+              {
+                "description": "PEM encoded X509 Certificate chain (including start and end markers) of a Verifiable Credential Issuer trusted during this Transaction."
+              },
+              {
+                "$ref": "#/components/schemas/IssuerChain"
+              }
+            ]
+          },
+          "origin": {
+            "allOf": [
+              {
+                "description": "Web origin that the DC Api request will be made from."
+              },
+              {
+                "$ref": "#/components/schemas/Origin"
+              }
+            ]
+          }
+        },
+        "required": [
+          "document_requests",
+          "nonce",
+          "origin"
+        ],
+        "additionalProperties": false
+      },
+      "ISODocumentRequests": {
+        "type": "array",
+        "nullable": false,
+        "items": {
+          "$ref": "#/components/schemas/ISODocumentRequest"
+        },
+        "minItems": 1
+      },
+      "ISODocumentRequest": {
+        "type": "object",
+        "nullable": false,
+        "properties": {
+          "doc_type": {
+            "type": "string",
+            "nullable": false,
+            "minLength": 1
+          },
+          "data_elements": {
+            "type": "object",
+            "nullable": false,
+            "additionalProperties": {
+              "items": {
+                "type": "object",
+                "nullable": false,
+                "properties": {
+                  "identifier": {
+                    "type": "string",
+                    "nullable": false,
+                    "minLength": 1
+                  },
+                  "intent_to_retain": {
+                    "type": "boolean",
+                    "nullable": true
+                  }
+                },
+                "required": [
+                  "identifier"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "required": [
+          "doc_type",
+          "data_elements"
+        ],
+        "additionalProperties": false
+      },
+      "InitISODCApiTransactionResponse": {
+        "type": "object",
+        "nullable": false,
+        "properties": {
+          "transaction_id": {
+            "allOf": [
+              {
+                "description": "The unique identifier of the newly initialized Transaction."
+              },
+              {
+                "$ref": "#/components/schemas/TransactionId"
+              }
+            ]
+          },
+          "dc_api_request": {
+            "allOf": [
+              {
+                "description": "The ISO DC API Request data."
+              },
+              {
+                "$ref": "#/components/schemas/ISODCApiRequest"
+              }
+            ]
+          }
+        },
+        "required": [
+          "transaction_id",
+          "dc_api_request"
+        ],
+        "additionalProperties": false
+      },
+      "ISODCApiRequest": {
+        "type": "object",
+        "nullable": false,
+        "properties": {
+          "deviceRequest": {
+            "type": "string",
+            "nullable": false,
+            "format": "base64url"
+          },
+          "encryptionInfo": {
+            "type": "string",
+            "nullable": false,
+            "format": "base64url"
+          }
+        },
+        "required": [
+          "deviceRequest",
+          "encryptionInfo"
+        ],
+        "additionalProperties": false
       }
     },
     "examples": {
@@ -2525,6 +2742,56 @@
         "value": {
           "request": "eyJ4NWMiOlsiTUlJQjV6Q0NBVXFnQXdJQkFnSUVaWUtlVnpBS0JnZ3Foa2pPUFFRREJEQVhNUlV3RXdZRFZRUUREQXhwYm5SbGNtMWxaR2xoZEdVd0lCY05Nak14TWpJd01EYzFOekV4V2hnUE1qRXlNekV5TWpBd056VTNNVEZhTUJNeEVUQVBCZ05WQkFNTUNIWmxjbWxtYVdWeU1JR2JNQkFHQnlxR1NNNDlBZ0VHQlN1QkJBQWpBNEdHQUFRQTlhRGhQY1ZBaDRrUC9GQTNTUnFua3pPbnVVblhzSzJEOVB3YkxiaVhBNm44UWlFUE1FcjB5Z0s1OUlnaE5HaVZhVnlNVk9QZFBMM1VMMnR5MU81Si9RVUFTY1VNcUo1eTZxZG54Y3dxQzN0MFZsWkYrYk04V3VCQ1pxN0NWdGNNTFNRY0ptRlh2cFU2QUtoWjNOOUl0NkFzb2FmNmNnMEFoR285SDJmWW8rbERBcWVqUXpCQk1DRUdBMVVkRVFFQi93UVhNQldDQ1d4dlkyRnNhRzl6ZElJSWRtVnlhV1pwWlhJd0RBWURWUjBUQVFIL0JBSXdBREFPQmdOVkhROEJBZjhFQkFNQ0I0QXdDZ1lJS29aSXpqMEVBd1FEZ1lvQU1JR0dBa0UzTmVBejlGOCtEbVROV1pYdHRZbDZ5Y2FtQ3FLWlEwbTdsczlKQnhJOUtjL3ROdGkxajgwVyt5WmZ1eDhNRjZUNCt3a3VNODlheTBxYjArNUR6ZEF4NGdKQkNLWE5LSEpLTkNTOEFPUjRlenZ2Y3FkMWhtOVlhMStHUVNTYm04cDR2QUVZemJCQUlPdmx0bVVqN2dQUFlDYU94QjhhbGtBSDZJWExIR2lXeFhQVEpFaz0iLCJNSUlCK1RDQ0FWdWdBd0lCQWdJRVpZR2xSakFLQmdncWhrak9QUVFEQkRBUE1RMHdDd1lEVlFRRERBUnliMjkwTUNBWERUSXpNVEl4T1RFME1UUXpNRm9ZRHpJeE1qTXhNakU1TVRReE5ETXdXakFYTVJVd0V3WURWUVFEREF4cGJuUmxjbTFsWkdsaGRHVXdnWnN3RUFZSEtvWkl6ajBDQVFZRks0RUVBQ01EZ1lZQUJBR0xQSHdmTG9IWTNZVmRoY1dkdzZIUTBsWFYvUDA2M0x6Uzhsd0h2ZjRZTTU3dGNWUkJxN3JUWUJoeVYxdDBnSnZOSFUyOHNXSDhxWXk5ZFcxcHJlc0dVd0RqWk5WMkxoZ1lHUzIrOWpTQ0JSN0FtbDQwSWJxdEhSQUhzNEJlbEVMN2pudnlGaEhSWG1UQ3FTMzcvSTVtY0dOdEhBOXkxQnEybVl2dUtmUDl4RzU0OEtOWU1GWXdHZ1lEVlIwUkFRSC9CQkF3RG9JTWFXNTBaWEp0WldScFlYUmxNQm9HQTFVZEVnRUIvd1FRTUE2Q0RHbHVkR1Z5YldWa2FXRjBaVEFNQmdOVkhSTUJBZjhFQWpBQU1BNEdBMVVkRHdFQi93UUVBd0lCQmpBS0JnZ3Foa2pPUFFRREJBT0Jpd0F3Z1ljQ1FYMDdWYXZZMjN2cG5sYUF2Z01MeC8vUHplWFg1dlNOeTdMTjlVVWdrNGFWRWM0VE0rTG1DNVJzSFJPVkE5LzljaXZUNm1SWWM3MngwQjJpclR4cDZIME5Ba0lCVERYZFduM3J5MkhzWHZHS1FDQWN5TEEvS09GN2pUcXJwYlZhY09ac1dCRWZZT1NBY1JPVjR5WVZnQ05PZW1RbndwSGZXbjVGYW5GWmNMME1FWkdnOC9ZPSJdLCJ0eXAiOiJvYXV0aC1hdXRoei1yZXErand0IiwiYWxnIjoiRVM1MTIifQ.eyJhdWQiOiJodHRwczovL3NlbGYtaXNzdWVkLm1lL3YyIiwicmVzcG9uc2VfdHlwZSI6InZwX3Rva2VuIiwiZXhwZWN0ZWRfb3JpZ2lucyI6WyJodHRwczovL3dhbGxldC5leGFtcGxlLmNvbSJdLCJkY3FsX3F1ZXJ5Ijp7ImNyZWRlbnRpYWxzIjpbeyJpZCI6InBpZCIsImZvcm1hdCI6Im1zb19tZG9jIiwibWV0YSI6eyJkb2N0eXBlX3ZhbHVlIjoiZXUuZXVyb3BhLmVjLmV1ZGkucGlkLjEifSwiY2xhaW1zIjpbeyJwYXRoIjpbImV1LmV1cm9wYS5lYy5ldWRpLnBpZC4xIiwiZmFtaWx5X25hbWUiXX0seyJwYXRoIjpbImV1LmV1cm9wYS5lYy5ldWRpLnBpZC4xIiwiZ2l2ZW5fbmFtZSJdfV19XX0sImlhdCI6MTc4MjM4NzU1Niwibm9uY2UiOiI4OGM2MTVhMi1iN2NhLTQzMjktYjY3My0zZjRjNDE0NmFkMzMiLCJjbGllbnRfaWQiOiJ4NTA5X2hhc2g6aTdqWmlTcWE0R1hOaDFMekJ3RDJsVnRLSWNJaHBpblJRUm84QkhTVk14MCIsImNsaWVudF9tZXRhZGF0YSI6eyJqd2tzIjp7ImtleXMiOlt7Imt0eSI6IkVDIiwidXNlIjoiZW5jIiwiY3J2IjoiUC0yNTYiLCJraWQiOiI3ZDUzZGJlMS1lYTU0LTRmNzctODE2YS1jNTI0YzA2YjlkNjciLCJ4IjoiZDVSNF9rWVljTnJ6cVBGc1MtcUJkcXItMzFPekpjSHFrczNrRTh4UDdVQSIsInkiOiJGZVJEREtPZkNKdEExSld3ZldEUll5M0VNTXo1N2NWWXlTUUkyS2p5YXNzIiwiYWxnIjoiRUNESC1FUyJ9XX0sInZwX2Zvcm1hdHNfc3VwcG9ydGVkIjp7ImRjK3NkLWp3dCI6eyJzZC1qd3RfYWxnX3ZhbHVlcyI6WyJFUzI1NiJdLCJrYi1qd3RfYWxnX3ZhbHVlcyI6WyJFUzI1NiJdfSwibXNvX21kb2MiOnsiaXNzdWVyYXV0aF9hbGdfdmFsdWVzIjpbLTcsLTM1LC0zNl0sImRldmljZWF1dGhfYWxnX3ZhbHVlcyI6Wy03LC0zNSwtMzZdfX0sImVuY3J5cHRlZF9yZXNwb25zZV9lbmNfdmFsdWVzX3N1cHBvcnRlZCI6WyJBMTI4R0NNIiwiQTI1NkdDTSJdfSwicmVzcG9uc2VfbW9kZSI6ImRjX2FwaS5qd3QifQ.AHkp_ee9Fqn-s_L5uS8VKowe7yEKSyc7FSNJanZMCAh1Fsd5twn8CGRGUkR_IRro_dYcdyRrlebC9E9kQMH-d3i6AUMxjpjlnmx4iJFMWIB6nRM0a5hrMZT80pg7ifn4td2OUtA-spAiq9cxDrsPj2myzTFy_AeI58iOs0xwv57UjUG9",
           "transaction_id": "7eFQsqH9m_PBRiB_IZnhYGyghaI8JmsKIb6VnWKB1fJAKE5B1VWtr__N2aPMYJ5-HWydSv7luD8UArvJwNp16w"
+        }
+      },
+      "InitISODCApiTransaction": {
+        "description": "Initialize an ISO DC Api Transaction requesting data from an ISO MSO MDoc PID, and mDL.",
+        "value": {
+          "document_requests": [
+            {
+              "doc_type": "eu.europa.ec.eudi.pid.1",
+              "data_elements": {
+                "eu.europa.ec.eudi.pid.1": [
+                  {
+                    "identifier": "family_name",
+                    "intent_to_retain": false
+                  },
+                  {
+                    "identifier": "given_name",
+                    "intent_to_retain": false
+                  }
+                ]
+              }
+            },
+            {
+              "doc_type": "org.iso.18013.5.1.mDL",
+              "data_elements": {
+                "org.iso.18013.5.1": [
+                  {
+                    "identifier": "family_name",
+                    "intent_to_retain": false
+                  },
+                  {
+                    "identifier": "given_name",
+                    "intent_to_retain": false
+                  }
+                ]
+              }
+            }
+          ],
+          "nonce": "I71lBXJUr6VLuQ247R7ZJ63ZdL7eToEN",
+          "issuer_chain": null,
+          "origin": "http://localhost:8080"
+        }
+      },
+      "InitISODCApiTransactionResponse": {
+        "description": "An initialized ISO DC Api Transaction",
+        "value": {
+          "transaction_id": "F0Wl4YafXIJ-XgCeiNaKw7pao5ikQfSnCSCSmqkNrgi01CmGXT6aYJld-KGvo4ZVyjr5kt8DSlXfpP96RKkypg",
+          "dc_api_request": {
+            "deviceRequest": "omd2ZXJzaW9uYzEuMGtkb2NSZXF1ZXN0c4KibGl0ZW1zUmVxdWVzdNgYWF-iZ2RvY1R5cGV3ZXUuZXVyb3BhLmVjLmV1ZGkucGlkLjFqbmFtZVNwYWNlc6F3ZXUuZXVyb3BhLmVjLmV1ZGkucGlkLjGia2ZhbWlseV9uYW1l9GpnaXZlbl9uYW1l9GpyZWFkZXJBdXRohEShATgjoRghglkB6zCCAecwggFKoAMCAQICBGWCnlcwCgYIKoZIzj0EAwQwFzEVMBMGA1UEAwwMaW50ZXJtZWRpYXRlMCAXDTIzMTIyMDA3NTcxMVoYDzIxMjMxMjIwMDc1NzExWjATMREwDwYDVQQDDAh2ZXJpZmllcjCBmzAQBgcqhkjOPQIBBgUrgQQAIwOBhgAEAPWg4T3FQIeJD_xQN0kap5Mzp7lJ17Ctg_T8Gy24lwOp_EIhDzBK9MoCufSIITRolWlcjFTj3Ty91C9rctTuSf0FAEnFDKiecuqnZ8XMKgt7dFZWRfmzPFrgQmauwlbXDC0kHCZhV76VOgCoWdzfSLegLKGn-nINAIRqPR9n2KPpQwKno0MwQTAhBgNVHREBAf8EFzAVgglsb2NhbGhvc3SCCHZlcmlmaWVyMAwGA1UdEwEB_wQCMAAwDgYDVR0PAQH_BAQDAgeAMAoGCCqGSM49BAMEA4GKADCBhgJBNzXgM_RfPg5kzVmV7bWJesnGpgqimUNJu5bPSQcSPSnP7TbYtY_NFvsmX7sfDBek-PsJLjPPWstKm9PuQ83QMeICQQilzShySjQkvADkeHs773KndYZvWGtfhkEkm5vKeLwBGM2wQCDr5bZlI-4Dz2AmjsQfGpZAB-iFyxxolsVz0yRJWQH9MIIB-TCCAVugAwIBAgIEZYGlRjAKBggqhkjOPQQDBDAPMQ0wCwYDVQQDDARyb290MCAXDTIzMTIxOTE0MTQzMFoYDzIxMjMxMjE5MTQxNDMwWjAXMRUwEwYDVQQDDAxpbnRlcm1lZGlhdGUwgZswEAYHKoZIzj0CAQYFK4EEACMDgYYABAGLPHwfLoHY3YVdhcWdw6HQ0lXV_P063LzS8lwHvf4YM57tcVRBq7rTYBhyV1t0gJvNHU28sWH8qYy9dW1presGUwDjZNV2LhgYGS2-9jSCBR7Aml40IbqtHRAHs4BelEL7jnvyFhHRXmTCqS37_I5mcGNtHA9y1Bq2mYvuKfP9xG548KNYMFYwGgYDVR0RAQH_BBAwDoIMaW50ZXJtZWRpYXRlMBoGA1UdEgEB_wQQMA6CDGludGVybWVkaWF0ZTAMBgNVHRMBAf8EAjAAMA4GA1UdDwEB_wQEAwIBBjAKBggqhkjOPQQDBAOBiwAwgYcCQX07VavY23vpnlaAvgMLx__PzeXX5vSNy7LN9UUgk4aVEc4TM-LmC5RsHROVA9_9civT6mRYc72x0B2irTxp6H0NAkIBTDXdWn3ry2HsXvGKQCAcyLA_KOF7jTqrpbVacOZsWBEfYOSAcROV4yYVgCNOemQnwpHfWn5FanFZcL0MEZGg8_b2WIQBr6uLkhQzgHifnbeV8Wv-oOAyoJMDB1jfVQ6mLwXHnx9471WT6D5knHX6cC9ss27bhPh3MCaJmgCiymDmTK2EZkwAhJOgbpRhFscOIpSf8Dz2U_MxZnXu-DGohKU2FHlTtLZGVRydtK73NSM7LCOG43TaYGtW2W7M1mJ12meL9TRCCK-ibGl0ZW1zUmVxdWVzdNgYWFeiZ2RvY1R5cGV1b3JnLmlzby4xODAxMy41LjEubURMam5hbWVTcGFjZXOhcW9yZy5pc28uMTgwMTMuNS4xomtmYW1pbHlfbmFtZfRqZ2l2ZW5fbmFtZfRqcmVhZGVyQXV0aIREoQE4I6EYIYJZAeswggHnMIIBSqADAgECAgRlgp5XMAoGCCqGSM49BAMEMBcxFTATBgNVBAMMDGludGVybWVkaWF0ZTAgFw0yMzEyMjAwNzU3MTFaGA8yMTIzMTIyMDA3NTcxMVowEzERMA8GA1UEAwwIdmVyaWZpZXIwgZswEAYHKoZIzj0CAQYFK4EEACMDgYYABAD1oOE9xUCHiQ_8UDdJGqeTM6e5SdewrYP0_BstuJcDqfxCIQ8wSvTKArn0iCE0aJVpXIxU4908vdQva3LU7kn9BQBJxQyonnLqp2fFzCoLe3RWVkX5szxa4EJmrsJW1wwtJBwmYVe-lToAqFnc30i3oCyhp_pyDQCEaj0fZ9ij6UMCp6NDMEEwIQYDVR0RAQH_BBcwFYIJbG9jYWxob3N0ggh2ZXJpZmllcjAMBgNVHRMBAf8EAjAAMA4GA1UdDwEB_wQEAwIHgDAKBggqhkjOPQQDBAOBigAwgYYCQTc14DP0Xz4OZM1Zle21iXrJxqYKoplDSbuWz0kHEj0pz-022LWPzRb7Jl-7HwwXpPj7CS4zz1rLSpvT7kPN0DHiAkEIpc0ocko0JLwA5Hh7O-9yp3WGb1hrX4ZBJJubyni8ARjNsEAg6-W2ZSPuA89gJo7EHxqWQAfohcscaJbFc9MkSVkB_TCCAfkwggFboAMCAQICBGWBpUYwCgYIKoZIzj0EAwQwDzENMAsGA1UEAwwEcm9vdDAgFw0yMzEyMTkxNDE0MzBaGA8yMTIzMTIxOTE0MTQzMFowFzEVMBMGA1UEAwwMaW50ZXJtZWRpYXRlMIGbMBAGByqGSM49AgEGBSuBBAAjA4GGAAQBizx8Hy6B2N2FXYXFncOh0NJV1fz9Oty80vJcB73-GDOe7XFUQau602AYcldbdICbzR1NvLFh_KmMvXVtaa3rBlMA42TVdi4YGBktvvY0ggUewJpeNCG6rR0QB7OAXpRC-4578hYR0V5kwqkt-_yOZnBjbRwPctQatpmL7inz_cRuePCjWDBWMBoGA1UdEQEB_wQQMA6CDGludGVybWVkaWF0ZTAaBgNVHRIBAf8EEDAOggxpbnRlcm1lZGlhdGUwDAYDVR0TAQH_BAIwADAOBgNVHQ8BAf8EBAMCAQYwCgYIKoZIzj0EAwQDgYsAMIGHAkF9O1Wr2Nt76Z5WgL4DC8f_z83l1-b0jcuyzfVFIJOGlRHOEzPi5guUbB0TlQPf_XIr0-pkWHO9sdAdoq08aeh9DQJCAUw13Vp968th7F7xikAgHMiwPyjhe406q6W1WnDmbFgRH2DkgHETleMmFYAjTnpkJ8KR31p-RWpxWXC9DBGRoPP29liEAKsmpeTsXx358TcIG7enm8gixn0pVLW9a3E8n9dyznwQer9ISkttl9mOlBFdC5qKatUvJun-fe0uvBMepz-QmKOTAB8Oa6LegYDr56WdgT-sRFaeJjXnCWmrdQ7A6lgK9W3U6sHLpsXmbjyVt0u_TNpQOIF0W8H4YYoMJ9_aynyNQLao",
+            "encryptionInfo": "gmVkY2FwaaJlbm9uY2VYIEk3MWxCWEpVcjZWTHVRMjQ3UjdaSjYzWmRMN2VUb0VOcnJlY2lwaWVudFB1YmxpY0tleaQBAiABIVgg-dhOoFZ1hkDbmaRHHANo9iw-DRkFJPaOtIMbOCmzd-IiWCAWvEiO0N9N-Xwap2a57aNjjrcMKdfUWoR4fKsOfTbDFw"
+          }
         }
       }
     },

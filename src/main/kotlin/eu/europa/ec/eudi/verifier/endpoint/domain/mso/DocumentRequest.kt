@@ -23,13 +23,14 @@ import eu.europa.ec.eudi.verifier.endpoint.adapter.out.mso.DataElementIdentifier
 import eu.europa.ec.eudi.verifier.endpoint.adapter.out.mso.NameSpace
 import eu.europa.ec.eudi.verifier.endpoint.domain.MsoMdocDocType
 import kotlinx.serialization.Required
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.UseSerializers
 
 @Serializable
 data class DocumentRequest(
-    @Required val docType: MsoMdocDocType,
-    @Required val dataElements: Map<NameSpace, NonEmptyList<DataElementRequest>>,
+    @Required @SerialName("doc_type") val docType: MsoMdocDocType,
+    @Required @SerialName("data_elements") val dataElements: Map<NameSpace, NonEmptyList<DataElementRequest>>,
 ) {
     init {
         require(dataElements.isNotEmpty()) {
@@ -41,7 +42,7 @@ data class DocumentRequest(
 @Serializable
 data class DataElementRequest(
     @Required val identifier: DataElementIdentifier,
-    val intentToRetain: Boolean? = null,
+    @SerialName("intent_to_retain") val intentToRetain: Boolean? = null,
 )
 
 val DataElementRequest.intentToRetainOrDefault: Boolean

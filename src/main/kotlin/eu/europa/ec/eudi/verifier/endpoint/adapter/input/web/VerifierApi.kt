@@ -70,6 +70,11 @@ internal class VerifierApi(
                 INTENDED_USES_PATH,
                 accept(APPLICATION_JSON),
             ) { handleGetIntendedUses() }
+            POST(
+                INIT_ISO_TRANSACTION_DC_API_PATH,
+                contentType(APPLICATION_JSON) and accept(APPLICATION_JSON),
+                ::handleInitISODCApiTransaction,
+            )
         }
 
     private suspend fun handleInitTransaction(
@@ -132,7 +137,7 @@ internal class VerifierApi(
         effect {
             val input = request.awaitBody<InitOpenId4VPOverDCApiTransactionTO>()
 
-            logger.info("Handling InitDCApiTransaction nonce=${input.nonce} ... ")
+            logger.info("Handling InitOpenId4VPOverDCApiTransactionTO nonce=${input.nonce} ... ")
             initTransaction(input)
         }.fold(
             transform = {
@@ -144,10 +149,38 @@ internal class VerifierApi(
             recover = { it.asBadRequest() },
             catch = { t ->
                 if (t is SerializationException) {
-                    logger.warn("While handling InitDCApiTransaction", t)
+                    logger.warn("While handling InitOpenId4VPOverDCApiTransactionTO", t)
                     badRequest().buildAndAwait()
                 } else {
                     throw t
+                }
+            },
+        )
+
+    private suspend fun handleInitISODCApiTransaction(request: ServerRequest): ServerResponse =
+        effect {
+            val data = request.awaitBody<InitISOOverDCApiTransactionTO>()
+
+            logger.info("Handling InitISOOverDCApiTransactionTO nonce=${data.nonce} ... ")
+            initTransaction(data)
+        }.fold(
+            transform = {
+                ok()
+                    .header(TRANSACTION_ID_HEADER, it.transactionId.value)
+                    .json()
+                    .bodyValueAndAwait(it)
+            },
+            recover = { it.asBadRequest() },
+            catch = {
+                when (it) {
+                    is SerializationException -> {
+                        logger.warn("While handling InitISOOverDCApiTransactionTO", it)
+                        badRequest().buildAndAwait()
+                    }
+
+                    else -> {
+                        throw it
+                    }
                 }
             },
         )
@@ -261,6 +294,7 @@ internal class VerifierApi(
         const val INIT_TRANSACTION_PATH = "/ui/presentations"
         const val INIT_TRANSACTION_PATH_V2 = "/ui/presentations/v2"
         const val INIT_TRANSACTION_PATH_DC_API = "/ui/presentations/dc-api"
+        const val INIT_ISO_TRANSACTION_DC_API_PATH = "/ui/presentations/iso/dc-api"
         const val DC_API_WALLET_RESPONSE_PATH = "/ui/presentations/{transactionId}/dc-api"
         const val WALLET_RESPONSE_PATH = "/ui/presentations/{transactionId}"
         const val EVENTS_RESPONSE_PATH = "/ui/presentations/{transactionId}/events"
