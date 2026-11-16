@@ -27,7 +27,7 @@ import org.slf4j.LoggerFactory
 import java.util.concurrent.ConcurrentHashMap
 
 data class PresentationStoredEntry(
-    val presentation: Presentation,
+    val presentation: Presentation<*, *>,
     val events: NonEmptyList<PresentationEvent>?,
 )
 
@@ -42,7 +42,7 @@ class PresentationInMemoryRepo(
     }
 
     val loadPresentationByRequestId: LoadPresentationByRequestId by lazy {
-        fun requestId(p: Presentation): RequestId? {
+        fun requestId(p: Presentation<*, *>): RequestId? {
             val presentationType = p.presentationType
             if (p is Presentation.TimedOut || presentationType !is PresentationType.OpenId4VP.OverRedirects) return null
             return presentationType.requestId

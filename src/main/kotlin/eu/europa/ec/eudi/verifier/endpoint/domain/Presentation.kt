@@ -165,10 +165,10 @@ sealed interface Profile {
     data object ETSI119472Part2 : Profile
 }
 
-sealed interface PresentationType {
+sealed interface PresentationType<WR : WalletResponse> {
     val responseMode: ResponseMode
 
-    sealed interface OpenId4VP : PresentationType {
+    sealed interface OpenId4VP : PresentationType<WalletResponse.OpenId4VP> {
         override val responseMode: ResponseMode.OpenId4VP
         val query: DCQL
         val transactionData: NonEmptyList<TransactionData>?
@@ -199,7 +199,7 @@ sealed interface PresentationType {
         }
     }
 
-    sealed interface ISO : PresentationType {
+    sealed interface ISO : PresentationType<WalletResponse.ISO> {
         override val responseMode: ResponseMode.ISO
         val documentRequests: NonEmptyList<DocumentRequest>
 
@@ -248,10 +248,11 @@ value class RegistrationCertificate private constructor(
 /**
  * The entity that represents the presentation process
  */
-sealed interface Presentation {
+sealed interface Presentation<PT : PresentationType<WR>, WR : WalletResponse> {
     val id: TransactionId
     val initiatedAt: Instant
-    val presentationType: PresentationType
+    val presentationType: PT
+    val nonce: Nonce
 
     /**
      * A presentation process that has been just requested
@@ -260,9 +261,9 @@ sealed interface Presentation {
         override val id: TransactionId,
         override val initiatedAt: Instant,
         override val presentationType: PresentationType.OpenId4VP.OverRedirects,
-        val nonce: Nonce,
+        override val nonce: Nonce,
         val issuerChain: NonEmptyList<X509Certificate>?,
-    ) : Presentation
+    ) : Presentation<PresentationType.OpenId4VP.OverRedirects, WalletResponse.OpenId4VP>
 
     /**
      * A presentation process for which the wallet has obtained the request object.
@@ -270,14 +271,14 @@ sealed interface Presentation {
      * as part of the initialization of the process (when using request JAR parameter)
      * or later on (when using request_uri JAR parameter)
      */
-    class RequestObjectRetrieved(
+    class RequestObjectRetrieved<PT : PresentationType<WR>, WR : WalletResponse>(
         override val id: TransactionId,
         override val initiatedAt: Instant,
-        override val presentationType: PresentationType,
+        override val presentationType: PT,
+        override val nonce: Nonce,
         val requestObjectRetrievedAt: Instant,
-        val nonce: Nonce,
         val issuerChain: NonEmptyList<X509Certificate>?,
-    ) : Presentation {
+    ) : Presentation<PT, WR> {
         init {
             require(initiatedAt <= requestObjectRetrievedAt)
         }
@@ -286,13 +287,13 @@ sealed interface Presentation {
             fun requestObjectRetrieved(
                 requested: Requested,
                 at: Instant,
-            ): RequestObjectRetrieved =
+            ): RequestObjectRetrieved<PresentationType.OpenId4VP.OverRedirects, WalletResponse.OpenId4VP> =
                 RequestObjectRetrieved(
                     requested.id,
                     requested.initiatedAt,
                     requested.presentationType,
-                    at,
                     requested.nonce,
+                    at,
                     requested.issuerChain,
                 )
         }
@@ -301,81 +302,67 @@ sealed interface Presentation {
     /**
      * A presentation process that has been just submitted by the wallet to the verifier backend
      */
-    class Submitted private constructor(
+    class Submitted<PT : PresentationType<WR>, WR : WalletResponse> private constructor(
         override val id: TransactionId,
         override val initiatedAt: Instant,
-        override val presentationType: PresentationType,
+        override val presentationType: PT,
+        override val nonce: Nonce,
         var requestObjectRetrievedAt: Instant,
         var submittedAt: Instant,
-        val walletResponse: WalletResponse,
-        val nonce: Nonce,
+        val walletResponse: WR,
         val responseCode: ResponseCode?,
-    ) : Presentation {
-        init {
-            when (presentationType) {
-                is PresentationType.OpenId4VP -> {
-                    require(walletResponse is WalletResponse.OpenId4VP) {
-                        "An OpenId4VP presentation requires an OpenId4VP Wallet Response"
-                    }
-                }
-
-                is PresentationType.ISO -> {
-                    require(walletResponse is WalletResponse.ISO) {
-                        "An ISO presentation requires an ISO Wallet Response"
-                    }
-                }
-            }
-        }
-
+    ) : Presentation<PT, WR> {
         companion object {
-            fun submitted(
-                requestObjectRetrieved: RequestObjectRetrieved,
+            fun <PT : PresentationType<WR>, WR : WalletResponse> submitted(
+                requestObjectRetrieved: RequestObjectRetrieved<PT, WR>,
                 at: Instant,
-                walletResponse: WalletResponse,
+                walletResponse: WR,
                 responseCode: ResponseCode?,
-            ): Submitted =
+            ): Submitted<PT, WR> =
                 with(requestObjectRetrieved) {
                     Submitted(
                         id,
                         initiatedAt,
                         presentationType,
+                        nonce,
                         requestObjectRetrievedAt,
                         at,
                         walletResponse,
-                        nonce,
                         responseCode,
                     )
                 }
         }
     }
 
-    class TimedOut private constructor(
+    class TimedOut<PT : PresentationType<WR>, WR : WalletResponse> private constructor(
         override val id: TransactionId,
         override val initiatedAt: Instant,
-        override val presentationType: PresentationType,
+        override val presentationType: PT,
+        override val nonce: Nonce,
         val requestObjectRetrievedAt: Instant?,
         val timedOutAt: Instant,
-    ) : Presentation {
+    ) : Presentation<PT, WR> {
         companion object {
             context(_: Raise<String>)
             fun timeOut(
                 presentation: Requested,
                 at: Instant,
-            ): TimedOut {
+            ): TimedOut<PresentationType.OpenId4VP.OverRedirects, WalletResponse.OpenId4VP> {
                 ensure(presentation.initiatedAt < at) { "Presentation ${presentation.initiatedAt} is before $at" }
-                return TimedOut(presentation.id, presentation.initiatedAt, presentation.presentationType, null, at)
+                return TimedOut(presentation.id, presentation.initiatedAt, presentation.presentationType, presentation.nonce, null, at)
             }
 
             context(_: Raise<String>)
-            fun timeOut(
-                presentation: RequestObjectRetrieved,
+            fun <PT : PresentationType<WR>, WR : WalletResponse> timeOut(
+                presentation: RequestObjectRetrieved<PT, WR>,
                 at: Instant,
-            ): TimedOut {
+            ): TimedOut<PT, WR> {
                 ensure(presentation.initiatedAt < at) { "Presentation ${presentation.initiatedAt} is before $at" }
                 return TimedOut(
                     presentation.id,
                     presentation.initiatedAt,
                     presentation.presentationType,
+                    presentation.nonce,
                     presentation.requestObjectRetrievedAt,
                     at,
                 )
@@ -384,7 +371,7 @@ sealed interface Presentation {
     }
 }
 
-fun Presentation.isExpired(at: Instant): Boolean {
+fun Presentation<*, *>.isExpired(at: Instant): Boolean {
     fun Instant.isBeforeOrEqual(at: Instant) = this <= at
     return when (this) {
         is Presentation.Requested -> initiatedAt.isBeforeOrEqual(at)
@@ -394,43 +381,60 @@ fun Presentation.isExpired(at: Instant): Boolean {
     }
 }
 
-fun Presentation.Requested.retrieveRequestObject(clock: Clock): Presentation.RequestObjectRetrieved =
+fun Presentation.Requested.retrieveRequestObject(
+    clock: Clock,
+): Presentation.RequestObjectRetrieved<PresentationType.OpenId4VP.OverRedirects, WalletResponse.OpenId4VP> =
     Presentation.RequestObjectRetrieved.requestObjectRetrieved(this, clock.now())
 
 context(_: Raise<String>)
-fun Presentation.Requested.timedOut(clock: Clock): Presentation.TimedOut = Presentation.TimedOut.timeOut(this, clock.now())
+fun Presentation.Requested.timedOut(
+    clock: Clock,
+): Presentation.TimedOut<PresentationType.OpenId4VP.OverRedirects, WalletResponse.OpenId4VP> =
+    Presentation.TimedOut.timeOut(this, clock.now())
 
 context(_: Raise<String>)
-fun Presentation.RequestObjectRetrieved.timedOut(clock: Clock): Presentation.TimedOut = Presentation.TimedOut.timeOut(this, clock.now())
-
-fun Presentation.RequestObjectRetrieved.submit(
+fun <PT : PresentationType<WR>, WR : WalletResponse> Presentation.RequestObjectRetrieved<PT, WR>.timedOut(
     clock: Clock,
-    walletResponse: WalletResponse.OpenId4VP,
-    responseCode: ResponseCode?,
-): Presentation.Submitted = Presentation.Submitted.submitted(this, clock.now(), walletResponse, responseCode)
+): Presentation.TimedOut<PT, WR> = Presentation.TimedOut.timeOut(this, clock.now())
 
-fun Presentation.RequestObjectRetrieved.submit(
+fun <PT : PresentationType<WR>, WR : WalletResponse.OpenId4VP> Presentation.RequestObjectRetrieved<PT, WR>.submit(
+    clock: Clock,
+    walletResponse: WR,
+    responseCode: ResponseCode?,
+): Presentation.Submitted<PT, WR> = Presentation.Submitted.submitted(this, clock.now(), walletResponse, responseCode)
+
+fun Presentation.RequestObjectRetrieved<PresentationType.ISO.OverDCApi, WalletResponse.ISO>.submit(
     clock: Clock,
     walletResponse: WalletResponse.ISO,
-): Presentation.Submitted = Presentation.Submitted.submitted(this, clock.now(), walletResponse, null)
+): Presentation.Submitted<PresentationType.ISO.OverDCApi, WalletResponse.ISO> =
+    Presentation.Submitted.submitted(this, clock.now(), walletResponse, null)
 
-val Presentation.transactionDataOrNull: NonEmptyList<TransactionData>?
+val Presentation<*, *>.transactionDataOrNull: NonEmptyList<TransactionData>?
     get() =
         when (val presentationType = presentationType) {
             is PresentationType.OpenId4VP -> presentationType.transactionData
             is PresentationType.ISO -> null
         }
 
-val Presentation.profileOrNull: Profile?
+val Presentation<*, *>.profileOrNull: Profile?
     get() =
         when (val presentationType = presentationType) {
             is PresentationType.OpenId4VP -> presentationType.profile
             is PresentationType.ISO -> null
         }
 
-val Presentation.registrationCertificateOrNull: RegistrationCertificate?
+val Presentation<*, *>.registrationCertificateOrNull: RegistrationCertificate?
     get() =
         when (val presentationType = presentationType) {
             is PresentationType.OpenId4VP -> presentationType.registrationCertificate
             is PresentationType.ISO -> null
         }
+
+@Suppress("UNCHECKED_CAST")
+internal inline fun <reified PT : PresentationType<WR>, WR : WalletResponse> Presentation<*, *>.narrow(): Presentation<PT, WR> {
+    val presentationType = presentationType
+    check(presentationType is PT) {
+        "Expected PresentationType ${PT::class.qualifiedName} but found ${presentationType::class.qualifiedName} instead"
+    }
+    return (this as Presentation<PT, WR>)
+}

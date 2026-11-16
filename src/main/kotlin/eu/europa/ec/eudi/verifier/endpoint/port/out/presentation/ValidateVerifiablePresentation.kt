@@ -18,8 +18,10 @@ package eu.europa.ec.eudi.verifier.endpoint.port.out.presentation
 import arrow.core.NonEmptyList
 import arrow.core.raise.Raise
 import eu.europa.ec.eudi.verifier.endpoint.domain.Presentation
+import eu.europa.ec.eudi.verifier.endpoint.domain.PresentationType
 import eu.europa.ec.eudi.verifier.endpoint.domain.TransactionData
 import eu.europa.ec.eudi.verifier.endpoint.domain.VerifiablePresentation
+import eu.europa.ec.eudi.verifier.endpoint.domain.WalletResponse
 import eu.europa.ec.eudi.verifier.endpoint.port.input.WalletResponseValidationError
 
 /**
@@ -33,7 +35,7 @@ import eu.europa.ec.eudi.verifier.endpoint.port.input.WalletResponseValidationEr
 fun interface ValidateVerifiablePresentation {
     context(_: Raise<WalletResponseValidationError>)
     suspend operator fun invoke(
-        presentation: Presentation.RequestObjectRetrieved,
+        presentation: Presentation.RequestObjectRetrieved<PresentationType.OpenId4VP, WalletResponse.OpenId4VP>,
         verifiablePresentation: VerifiablePresentation,
         transactionData: NonEmptyList<TransactionData>?,
     ): VerifiablePresentation

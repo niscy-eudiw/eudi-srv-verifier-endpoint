@@ -24,6 +24,7 @@ import arrow.core.raise.context.withError
 import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.SignedJWT
 import eu.europa.ec.eudi.sdjwt.SdJwtVerificationException
+import eu.europa.ec.eudi.sdjwt.invoke
 import eu.europa.ec.eudi.statium.TokenStatusListSpec
 import eu.europa.ec.eudi.verifier.endpoint.adapter.out.digest.hash
 import eu.europa.ec.eudi.verifier.endpoint.adapter.out.encoding.base64UrlNoPadding
@@ -56,7 +57,7 @@ internal class ValidateSdJwtVcOrMsoMdocVerifiablePresentation(
 
     context(_: Raise<WalletResponseValidationError>)
     override suspend fun invoke(
-        presentation: Presentation.RequestObjectRetrieved,
+        presentation: Presentation.RequestObjectRetrieved<PresentationType.OpenId4VP, WalletResponse.OpenId4VP>,
         verifiablePresentation: VerifiablePresentation,
         transactionData: NonEmptyList<TransactionData>?,
     ): VerifiablePresentation =
@@ -68,7 +69,6 @@ internal class ValidateSdJwtVcOrMsoMdocVerifiablePresentation(
                     when (presentation.presentationType) {
                         is PresentationType.OpenId4VP.OverDCApi -> "origin:${presentation.presentationType.origin}"
                         is PresentationType.OpenId4VP.OverRedirects -> config.verifierId.clientId
-                        is PresentationType.ISO.OverDCApi -> TODO()
                     }
                 validator.validateSdJwtVcVerifiablePresentation(
                     vpFormatSupported,
@@ -167,7 +167,7 @@ internal class ValidateSdJwtVcOrMsoMdocVerifiablePresentation(
 
     context(_: Raise<WalletResponseValidationError>)
     private suspend fun DeviceResponseValidator.validateMsoMdocVerifiablePresentation(
-        presentation: Presentation.RequestObjectRetrieved,
+        presentation: Presentation.RequestObjectRetrieved<PresentationType.OpenId4VP, WalletResponse.OpenId4VP>,
         verifiablePresentation: VerifiablePresentation,
         vpFormatSupported: VpFormatsSupported.MsoMdoc,
     ): VerifiablePresentation.Str {

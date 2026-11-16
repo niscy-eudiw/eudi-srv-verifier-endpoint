@@ -17,6 +17,7 @@ package eu.europa.ec.eudi.verifier.endpoint.port.out.mso.dcapi
 
 import eu.europa.ec.eudi.verifier.endpoint.domain.Presentation
 import eu.europa.ec.eudi.verifier.endpoint.domain.PresentationType
+import eu.europa.ec.eudi.verifier.endpoint.domain.WalletResponse
 import eu.europa.ec.eudi.verifier.endpoint.domain.mso.dcapi.DCApiRequest
 
 /**
@@ -24,5 +25,7 @@ import eu.europa.ec.eudi.verifier.endpoint.domain.mso.dcapi.DCApiRequest
  * signed by the Access Certificate of this Verifier.
  */
 fun interface CreateDCApiRequest {
-    suspend operator fun invoke(presentation: Presentation.RequestObjectRetrieved): DCApiRequest
+    suspend operator fun invoke(
+        presentation: Presentation.RequestObjectRetrieved<PresentationType.ISO.OverDCApi, WalletResponse.ISO>,
+    ): DCApiRequest
 }

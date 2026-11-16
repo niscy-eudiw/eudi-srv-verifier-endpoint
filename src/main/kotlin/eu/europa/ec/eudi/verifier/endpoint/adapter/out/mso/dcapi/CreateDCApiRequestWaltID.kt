@@ -30,6 +30,7 @@ import eu.europa.ec.eudi.verifier.endpoint.domain.Presentation
 import eu.europa.ec.eudi.verifier.endpoint.domain.PresentationType
 import eu.europa.ec.eudi.verifier.endpoint.domain.VerifierConfig
 import eu.europa.ec.eudi.verifier.endpoint.domain.VerifierId
+import eu.europa.ec.eudi.verifier.endpoint.domain.WalletResponse
 import eu.europa.ec.eudi.verifier.endpoint.domain.mso.dcapi.DCApiRequest
 import eu.europa.ec.eudi.verifier.endpoint.domain.mso.dcapi.EncryptionInfo
 import eu.europa.ec.eudi.verifier.endpoint.domain.mso.dcapi.EncryptionParameters
@@ -54,10 +55,10 @@ class CreateDCApiRequestWaltID(
         }
     }
 
-    override suspend fun invoke(presentation: Presentation.RequestObjectRetrieved): DCApiRequest {
+    override suspend fun invoke(
+        presentation: Presentation.RequestObjectRetrieved<PresentationType.ISO.OverDCApi, WalletResponse.ISO>,
+    ): DCApiRequest {
         val presentationType = presentation.presentationType
-        require(presentationType is PresentationType.ISO.OverDCApi)
-
         val documentRequests =
             presentationType.documentRequests.map { documentRequest ->
                 MDocRequestBuilder(documentRequest.docType.value)

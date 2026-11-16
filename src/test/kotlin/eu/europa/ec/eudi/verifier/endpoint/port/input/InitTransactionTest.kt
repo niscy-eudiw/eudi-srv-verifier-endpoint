@@ -32,7 +32,6 @@ import kotlinx.io.bytestring.decodeToByteString
 import kotlinx.io.bytestring.decodeToString
 import kotlinx.serialization.json.*
 import java.net.URI
-import java.net.URL
 import kotlin.test.*
 import kotlin.time.Duration.Companion.days
 
@@ -192,9 +191,11 @@ class InitTransactionTest {
             assertEquals(jwtSecuredAuthorizationRequest.clientId, verifierConfig.verifierId.clientId)
             assertNotNull(jwtSecuredAuthorizationRequest.request)
             val presentation = loadPresentationById(testTransactionId)
-            val requestObjectRetrieved = assertIs<Presentation.RequestObjectRetrieved>(presentation)
-            val presentationType = assertIs<PresentationType.OpenId4VP>(requestObjectRetrieved.presentationType)
-            assertEquals(ResponseModeType.DirectPost, presentationType.responseMode.type)
+            val requestObjectRetrieved =
+                assertIs<Presentation.RequestObjectRetrieved<PresentationType.OpenId4VP.OverRedirects, WalletResponse.OpenId4VP>>(
+                    presentation,
+                )
+            assertEquals(ResponseModeType.DirectPost, requestObjectRetrieved.presentationType.responseMode.type)
         }
 
     /**
@@ -297,8 +298,7 @@ class InitTransactionTest {
                 either { useCase(input) }.getOrElse { fail("Unexpected $it") },
             )
             val presentation = loadPresentationById(testTransactionId)
-            assertIs<Presentation.RequestObjectRetrieved>(presentation)
-            assertIs<PresentationType.OpenId4VP.OverRedirects>(presentation.presentationType)
+            assertIs<Presentation.RequestObjectRetrieved<PresentationType.OpenId4VP.OverRedirects, WalletResponse.OpenId4VP>>(presentation)
             assertIs<GetWalletResponseMethod.Redirect>(presentation.presentationType.getWalletResponseMethod)
         }
 
@@ -322,8 +322,7 @@ class InitTransactionTest {
                 either { useCase(input) }.getOrElse { fail("Unexpected $it") },
             )
             val presentation = loadPresentationById(testTransactionId)
-            assertIs<Presentation.RequestObjectRetrieved>(presentation)
-            assertIs<PresentationType.OpenId4VP.OverRedirects>(presentation.presentationType)
+            assertIs<Presentation.RequestObjectRetrieved<PresentationType.OpenId4VP.OverRedirects, WalletResponse.OpenId4VP>>(presentation)
             assertIs<GetWalletResponseMethod.Poll>(presentation.presentationType.getWalletResponseMethod)
         }
 

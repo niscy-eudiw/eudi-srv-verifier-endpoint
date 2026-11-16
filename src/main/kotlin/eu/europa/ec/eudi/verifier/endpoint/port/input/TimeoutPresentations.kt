@@ -43,7 +43,7 @@ class TimeoutPresentationsLive(
         return loadIncompletePresentationsOlderThan(expireBefore).mapNotNull { timeout(it)?.id }
     }
 
-    private suspend fun timeout(presentation: Presentation): Presentation? =
+    private suspend fun timeout(presentation: Presentation<*, *>): Presentation<*, *>? =
         effect {
             val timeout =
                 when (presentation) {
@@ -59,7 +59,7 @@ class TimeoutPresentationsLive(
             timeout
         }.getOrNull()
 
-    private suspend fun logExpired(presentation: Presentation.TimedOut) {
+    private suspend fun logExpired(presentation: Presentation.TimedOut<*, *>) {
         val event = PresentationEvent.PresentationExpired(presentation.id, presentation.timedOutAt)
         publishPresentationEvent(event)
     }

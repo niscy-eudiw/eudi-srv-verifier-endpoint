@@ -59,7 +59,7 @@ sealed interface HandoverInfo {
 
     companion object {
         operator fun invoke(
-            presentation: Presentation.RequestObjectRetrieved,
+            presentation: Presentation.RequestObjectRetrieved<*, *>,
             config: VerifierConfig,
         ): HandoverInfo =
             when (presentation.presentationType) {

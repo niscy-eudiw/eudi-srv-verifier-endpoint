@@ -16,11 +16,13 @@
 package eu.europa.ec.eudi.verifier.endpoint.port.out.persistence
 
 import eu.europa.ec.eudi.verifier.endpoint.domain.Presentation
+import eu.europa.ec.eudi.verifier.endpoint.domain.PresentationType
 import eu.europa.ec.eudi.verifier.endpoint.domain.TransactionId
+import eu.europa.ec.eudi.verifier.endpoint.domain.WalletResponse
 
 /**
  * Loads a [Presentation] from a storage
  */
 fun interface LoadPresentationById {
-    suspend operator fun invoke(presentationProcessById: TransactionId): Presentation?
+    suspend operator fun invoke(presentationProcessById: TransactionId): Presentation<*, *>?
 }

@@ -16,17 +16,10 @@
 package eu.europa.ec.eudi.verifier.endpoint.adapter.out.mso.dcapi
 
 import arrow.core.raise.catch
-import arrow.core.raise.context.Raise
 import arrow.core.raise.context.raise
 import com.nimbusds.jose.jwk.ECKey
-import eu.europa.ec.eudi.verifier.endpoint.adapter.out.mso.HandoverInfo
-import eu.europa.ec.eudi.verifier.endpoint.adapter.out.mso.SessionTranscript
-import eu.europa.ec.eudi.verifier.endpoint.adapter.out.mso.cbor
-import eu.europa.ec.eudi.verifier.endpoint.adapter.out.mso.toDataElement
-import eu.europa.ec.eudi.verifier.endpoint.adapter.out.mso.toHandover
-import eu.europa.ec.eudi.verifier.endpoint.domain.Presentation
+import eu.europa.ec.eudi.verifier.endpoint.adapter.out.mso.*
 import eu.europa.ec.eudi.verifier.endpoint.domain.PresentationType
-import eu.europa.ec.eudi.verifier.endpoint.domain.mso.dcapi.EncryptedResponse
 import eu.europa.ec.eudi.verifier.endpoint.port.input.WalletResponseValidationError
 import eu.europa.ec.eudi.verifier.endpoint.port.out.mso.dcapi.DecryptDeviceResponse
 import kotlinx.serialization.encodeToByteArray

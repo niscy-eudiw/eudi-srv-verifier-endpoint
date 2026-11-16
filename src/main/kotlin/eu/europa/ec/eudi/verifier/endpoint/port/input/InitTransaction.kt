@@ -457,8 +457,8 @@ class InitTransactionLive(
                 generateTransactionId(),
                 initiatedAt,
                 presentationType,
-                initiatedAt,
                 nonce,
+                initiatedAt,
                 issuerChain,
             )
 
@@ -476,7 +476,10 @@ class InitTransactionLive(
         issuerChain: NonEmptyList<X509Certificate>?,
         presentationType: PresentationType.OpenId4VP.OverRedirects,
         unresolvedAuthorizationRequestUri: UnresolvedAuthorizationRequestUri,
-    ): Pair<Presentation, InitOpenId4VPOverRedirectsTransactionResponse.JwtSecuredAuthorizationRequestTO> =
+    ): Pair<
+        Presentation<PresentationType.OpenId4VP.OverRedirects, WalletResponse.OpenId4VP>,
+        InitOpenId4VPOverRedirectsTransactionResponse.JwtSecuredAuthorizationRequestTO,
+    > =
         when (jarMode) {
             is EmbedOption.ByReference -> {
                 val presentation =
@@ -612,7 +615,7 @@ class InitTransactionLive(
         }
 
     private suspend fun logTransactionInitialized(
-        presentation: Presentation,
+        presentation: Presentation<PresentationType.OpenId4VP.OverRedirects, WalletResponse.OpenId4VP>,
         request: InitOpenId4VPOverRedirectsTransactionResponse.JwtSecuredAuthorizationRequestTO,
         profile: Profile,
     ) {
@@ -627,7 +630,7 @@ class InitTransactionLive(
     }
 
     private suspend fun logTransactionInitialized(
-        presentation: Presentation.RequestObjectRetrieved,
+        presentation: Presentation.RequestObjectRetrieved<PresentationType.OpenId4VP.OverDCApi, WalletResponse.OpenId4VP>,
         request: Jwt,
     ) {
         val event =
@@ -641,7 +644,7 @@ class InitTransactionLive(
     }
 
     private suspend fun logTransactionInitialized(
-        presentation: Presentation.RequestObjectRetrieved,
+        presentation: Presentation.RequestObjectRetrieved<PresentationType.ISO.OverDCApi, WalletResponse.ISO>,
         dcApiRequest: DCApiRequest,
     ) {
         val event =

@@ -121,14 +121,14 @@ class GetWalletResponseLive(
             }
         }
 
-    private suspend fun found(presentation: Presentation.Submitted): Found<WalletResponseTO> {
+    private suspend fun found(presentation: Presentation.Submitted<*, *>): Found<WalletResponseTO> {
         val walletResponse = presentation.walletResponse.toTO()
         logVerifierGotWalletResponse(presentation, walletResponse)
         return Found(walletResponse)
     }
 
     private suspend fun responseCodeMismatch(
-        presentation: Presentation.Submitted,
+        presentation: Presentation.Submitted<*, *>,
         responseCode: ResponseCode?,
     ): InvalidState {
         fun ResponseCode?.txt() = this?.let { value } ?: "N/A"
@@ -140,14 +140,14 @@ class GetWalletResponseLive(
         return InvalidState(InvalidStateError.InvalidResponseCode)
     }
 
-    private suspend fun invalidState(presentation: Presentation): InvalidState {
+    private suspend fun invalidState(presentation: Presentation<*, *>): InvalidState {
         val cause = "Presentation should be in Submitted state but is in ${presentation.javaClass.name}"
         logVerifierFailedToGetWalletResponse(presentation, cause)
         return InvalidState(InvalidStateError.PresentationNotSubmitted)
     }
 
     private suspend fun logVerifierGotWalletResponse(
-        presentation: Presentation.Submitted,
+        presentation: Presentation.Submitted<*, *>,
         walletResponse: WalletResponseTO,
     ) {
         val event = PresentationEvent.VerifierGotWalletResponse(presentation.id, clock.now(), walletResponse)
@@ -155,7 +155,7 @@ class GetWalletResponseLive(
     }
 
     private suspend fun logVerifierFailedToGetWalletResponse(
-        presentation: Presentation,
+        presentation: Presentation<*, *>,
         cause: String,
     ) {
         val event = PresentationEvent.VerifierFailedToGetWalletResponse(presentation.id, clock.now(), cause)

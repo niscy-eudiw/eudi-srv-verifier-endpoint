@@ -58,8 +58,8 @@ sealed interface RetrieveRequestObjectError {
     data object PresentationNotFound : RetrieveRequestObjectError
 
     data class InvalidState(
-        val expected: KClass<out Presentation>,
-        val actual: KClass<out Presentation>,
+        val expected: KClass<out Presentation<*, *>>,
+        val actual: KClass<out Presentation<*, *>>,
     ) : RetrieveRequestObjectError
 
     data class InvalidRequestUriMethod(
@@ -112,7 +112,12 @@ class RetrieveRequestObjectLive(
         requestId: RequestId,
         method: RetrieveRequestObjectMethod,
     ): Jwt =
-        when (val presentation = loadPresentationByRequestId(requestId)) {
+        when (
+            val presentation =
+                loadPresentationByRequestId(
+                    requestId,
+                )?.narrow<PresentationType.OpenId4VP.OverRedirects, WalletResponse.OpenId4VP>()
+        ) {
             null -> {
                 raise(RetrieveRequestObjectError.PresentationNotFound)
             }
@@ -128,7 +133,7 @@ class RetrieveRequestObjectLive(
         }
 
     private suspend fun publishError(
-        presentation: Presentation,
+        presentation: Presentation<PresentationType.OpenId4VP.OverRedirects, WalletResponse.OpenId4VP>,
         error: RetrieveRequestObjectError,
     ) {
         causeOf(error)?.let { cause ->
@@ -139,7 +144,7 @@ class RetrieveRequestObjectLive(
 
     context(_: Raise<RetrieveRequestObjectError>)
     private suspend fun found(
-        presentation: Presentation,
+        presentation: Presentation<PresentationType.OpenId4VP.OverRedirects, WalletResponse.OpenId4VP>,
         method: RetrieveRequestObjectMethod,
     ): Jwt {
         ensure(presentation is Presentation.Requested) {
@@ -149,7 +154,7 @@ class RetrieveRequestObjectLive(
         suspend fun updatePresentationAndCreateJar(
             encryptionRequirement: EncryptionRequirement,
             walletIdentifier: Audience,
-        ): Pair<Presentation.RequestObjectRetrieved, Jwt> {
+        ): Pair<Presentation.RequestObjectRetrieved<PresentationType.OpenId4VP.OverRedirects, WalletResponse.OpenId4VP>, Jwt> {
             val jar =
                 createJar(
                     clock.now(),
@@ -165,7 +170,7 @@ class RetrieveRequestObjectLive(
         }
 
         suspend fun log(
-            p: Presentation.RequestObjectRetrieved,
+            p: Presentation.RequestObjectRetrieved<PresentationType.OpenId4VP.OverRedirects, WalletResponse.OpenId4VP>,
             jwt: Jwt,
         ) {
             val event = PresentationEvent.RequestObjectRetrieved(p.id, p.requestObjectRetrievedAt, jwt)

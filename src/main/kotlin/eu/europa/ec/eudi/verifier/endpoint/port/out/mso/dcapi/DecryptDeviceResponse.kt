@@ -17,6 +17,8 @@ package eu.europa.ec.eudi.verifier.endpoint.port.out.mso.dcapi
 
 import arrow.core.raise.context.Raise
 import eu.europa.ec.eudi.verifier.endpoint.domain.Presentation
+import eu.europa.ec.eudi.verifier.endpoint.domain.PresentationType
+import eu.europa.ec.eudi.verifier.endpoint.domain.WalletResponse
 import eu.europa.ec.eudi.verifier.endpoint.domain.mso.dcapi.EncryptedResponse
 import eu.europa.ec.eudi.verifier.endpoint.port.input.WalletResponseValidationError
 
@@ -26,7 +28,7 @@ import eu.europa.ec.eudi.verifier.endpoint.port.input.WalletResponseValidationEr
 fun interface DecryptDeviceResponse {
     context(_: Raise<WalletResponseValidationError.DeviceResponseCannotBeDecrypted>)
     suspend operator fun invoke(
-        presentation: Presentation.RequestObjectRetrieved,
+        presentation: Presentation.RequestObjectRetrieved<PresentationType.ISO.OverDCApi, WalletResponse.ISO>,
         encryptedResponse: EncryptedResponse,
     ): ByteArray
 }

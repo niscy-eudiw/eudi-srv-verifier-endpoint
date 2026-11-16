@@ -23,19 +23,16 @@ import arrow.core.raise.context.ensureNotNull
 import arrow.core.raise.context.raise
 import arrow.core.raise.context.withError
 import arrow.core.raise.effect
-import arrow.core.raise.either
 import arrow.core.raise.recover
 import arrow.core.toNonEmptyListOrNull
 import com.nimbusds.jose.jwk.JWK
 import eu.europa.ec.eudi.verifier.endpoint.adapter.out.mso.DeviceResponseError
 import eu.europa.ec.eudi.verifier.endpoint.adapter.out.mso.DeviceResponseValidator
 import eu.europa.ec.eudi.verifier.endpoint.adapter.out.mso.HandoverInfo
-import eu.europa.ec.eudi.verifier.endpoint.adapter.out.utils.getOrThrow
 import eu.europa.ec.eudi.verifier.endpoint.domain.*
 import eu.europa.ec.eudi.verifier.endpoint.domain.Presentation.RequestObjectRetrieved
 import eu.europa.ec.eudi.verifier.endpoint.domain.Presentation.Submitted
 import eu.europa.ec.eudi.verifier.endpoint.domain.mso.dcapi.DCApiResponse
-import eu.europa.ec.eudi.verifier.endpoint.domain.mso.dcapi.EncryptedResponse
 import eu.europa.ec.eudi.verifier.endpoint.port.input.WalletResponseValidationError.*
 import eu.europa.ec.eudi.verifier.endpoint.port.out.cfg.CreateQueryWalletResponseRedirectUri
 import eu.europa.ec.eudi.verifier.endpoint.port.out.cfg.GenerateResponseCode
@@ -53,7 +50,6 @@ import kotlinx.serialization.json.*
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.security.cert.X509Certificate
-import kotlin.reflect.KClass
 
 /**
  * Represent the Authorization Response placed by wallet
@@ -148,7 +144,7 @@ sealed interface WalletResponseValidationError {
 
 context(_: Raise<WalletResponseValidationError>)
 private suspend fun AuthorisationResponseTO.toDomain(
-    presentation: RequestObjectRetrieved,
+    presentation: RequestObjectRetrieved<PresentationType.OpenId4VP, WalletResponse.OpenId4VP>,
     validateVerifiablePresentation: ValidateVerifiablePresentation,
     vpFormatsSupported: VpFormatsSupported,
 ): WalletResponse.OpenId4VP {
@@ -165,13 +161,13 @@ private suspend fun AuthorisationResponseTO.toDomain(
 
 context(_: Raise<WalletResponseValidationError>)
 private suspend fun AuthorisationResponseTO.verifiablePresentations(
-    presentation: RequestObjectRetrieved,
+    presentation: RequestObjectRetrieved<PresentationType.OpenId4VP, WalletResponse.OpenId4VP>,
     validateVerifiablePresentation: ValidateVerifiablePresentation,
     vpFormatsSupported: VpFormatsSupported,
 ): VerifiablePresentations {
     ensureNotNull(vpToken) { MissingVpToken }
+
     val presentationType = presentation.presentationType
-    check(presentationType is PresentationType.OpenId4VP)
 
     suspend fun JsonObject.toVerifiablePresentations(): Map<QueryId, List<VerifiablePresentation>> {
         val vpToken =
@@ -328,18 +324,13 @@ class PostWalletResponseLive(
     ): WalletResponseAcceptedTO? {
         log.debug(lookup, walletResponse)
 
-        val presentation = loadPresentation(lookup)
+        val presentation = loadPresentation(lookup).narrow<PresentationType.OpenId4VP, WalletResponse.OpenId4VP>()
         ensure(presentation is RequestObjectRetrieved) {
             PresentationNotInExpectedState
         }
         log.debug(presentation, walletResponse)
 
-        val presentationType = presentation.presentationType
-        check(presentationType is PresentationType.OpenId4VP) {
-            "Expected OpenId4VP Presentation for OpenId4VP Authorisation Response"
-        }
-
-        val responseObject = responseObject(walletResponse, presentationType, presentation.nonce)
+        val responseObject = responseObject(walletResponse, presentation.presentationType, presentation.nonce)
         log.info(presentation.id, responseObject)
 
         return effect {
@@ -359,16 +350,11 @@ class PostWalletResponseLive(
     ) {
         log.debug(lookup, walletResponse)
 
-        val presentation = loadPresentation(lookup)
+        val presentation = loadPresentation(lookup).narrow<PresentationType.ISO.OverDCApi, WalletResponse.ISO>()
         ensure(presentation is RequestObjectRetrieved) {
             PresentationNotInExpectedState
         }
         log.debug(presentation, walletResponse)
-
-        val presentationType = presentation.presentationType
-        check(presentationType is PresentationType.ISO.OverDCApi) {
-            "Expected ISO Presentation for ISO DC API Authorisation Response"
-        }
 
         effect {
             val serialized =
@@ -383,11 +369,7 @@ class PostWalletResponseLive(
                     deviceResponseValidator.ensureValid(
                         serialized,
                         presentation.id,
-                        HandoverInfo.ISODCApiHandoverInfo(
-                            presentation.nonce,
-                            presentationType.responseMode.ephemeralResponseEncryptionKey.toPublicJWK(),
-                            presentationType.origin,
-                        ),
+                        HandoverInfo(presentation, verifierConfig),
                     )
                 }
 
@@ -402,20 +384,15 @@ class PostWalletResponseLive(
 
     context(_: Raise<WalletResponseValidationError>)
     private suspend fun submit(
-        presentation: RequestObjectRetrieved,
+        presentation: RequestObjectRetrieved<PresentationType.OpenId4VP, WalletResponse.OpenId4VP>,
         responseObject: AuthorisationResponseTO,
-    ): Pair<Submitted, WalletResponseAcceptedTO?> {
+    ): Pair<Submitted<PresentationType.OpenId4VP, WalletResponse.OpenId4VP>, WalletResponseAcceptedTO?> {
         // Submit the response
         val submitted =
             doSubmit(presentation, responseObject).also { storePresentation(it) }
 
-        val presentationType = presentation.presentationType
-        check(presentationType is PresentationType.OpenId4VP) {
-            "Not applicable to ISO presentations"
-        }
-
         val accepted =
-            when (presentationType) {
+            when (val presentationType = presentation.presentationType) {
                 is PresentationType.OpenId4VP.OverRedirects -> {
                     when (val getWalletResponseMethod = presentationType.getWalletResponseMethod) {
                         is GetWalletResponseMethod.Redirect -> {
@@ -440,7 +417,7 @@ class PostWalletResponseLive(
     }
 
     context(_: Raise<WalletResponseValidationError>)
-    private suspend fun loadPresentation(lookup: PresentationLookup): Presentation {
+    private suspend fun loadPresentation(lookup: PresentationLookup): Presentation<*, *> {
         val presentation =
             when (lookup) {
                 is PresentationLookup.ByRequestId -> loadPresentationByRequestId(lookup.requestId)
@@ -544,9 +521,9 @@ class PostWalletResponseLive(
 
     context(_: Raise<WalletResponseValidationError>)
     private suspend fun doSubmit(
-        presentation: RequestObjectRetrieved,
+        presentation: RequestObjectRetrieved<PresentationType.OpenId4VP, WalletResponse.OpenId4VP>,
         responseObject: AuthorisationResponseTO,
-    ): Submitted {
+    ): Submitted<PresentationType.OpenId4VP, WalletResponse.OpenId4VP> {
         // add the wallet response to the presentation
         val walletResponse =
             responseObject.toDomain(
@@ -555,13 +532,8 @@ class PostWalletResponseLive(
                 verifierConfig.clientMetaData.vpFormatsSupported,
             )
 
-        val presentationType = presentation.presentationType
-        check(presentationType is PresentationType.OpenId4VP) {
-            "Not applicable to ISO Presentations"
-        }
-
         val responseCode =
-            when (presentationType) {
+            when (val presentationType = presentation.presentationType) {
                 is PresentationType.OpenId4VP.OverDCApi -> {
                     null
                 }
@@ -580,7 +552,7 @@ class PostWalletResponseLive(
     }
 
     private suspend fun logWalletResponsePosted(
-        p: Submitted,
+        p: Submitted<*, *>,
         accepted: WalletResponseAcceptedTO?,
     ) {
         val event =
@@ -589,7 +561,7 @@ class PostWalletResponseLive(
     }
 
     private suspend fun logFailure(
-        presentation: RequestObjectRetrieved,
+        presentation: RequestObjectRetrieved<*, *>,
         responseObject: AuthorisationResponseTO?,
         cause: WalletResponseValidationError,
     ) {
@@ -638,7 +610,7 @@ private val AuthorisationResponse.OpenId4VP.vpTokenOrNull: JsonObject?
             is AuthorisationResponse.OpenId4VP.OverDCApi.DCApiJwt -> null
         }
 
-private val RequestObjectRetrieved.ephemeralResponseEncryptionKeyOrNull: JWK?
+private val RequestObjectRetrieved<PresentationType.OpenId4VP, *>.ephemeralResponseEncryptionKeyOrNull: JWK?
     get() =
         when (val presentationType = this.presentationType) {
             is PresentationType.OpenId4VP.OverRedirects -> {
@@ -651,12 +623,6 @@ private val RequestObjectRetrieved.ephemeralResponseEncryptionKeyOrNull: JWK?
             is PresentationType.OpenId4VP.OverDCApi -> {
                 when (val responseMode = presentationType.responseMode) {
                     is ResponseMode.OpenId4VP.OverDCApi.DCApiJwt -> responseMode.ephemeralResponseEncryptionKey
-                }
-            }
-
-            is PresentationType.ISO.OverDCApi -> {
-                when (val responseMode = presentationType.responseMode) {
-                    is ResponseMode.ISO.OverDCApi.DCApi -> responseMode.ephemeralResponseEncryptionKey
                 }
             }
         }
@@ -698,7 +664,7 @@ private fun Logger.debug(
 }
 
 private fun Logger.debug(
-    presentation: RequestObjectRetrieved,
+    presentation: RequestObjectRetrieved<PresentationType.OpenId4VP, WalletResponse.OpenId4VP>,
     walletResponse: AuthorisationResponse.OpenId4VP,
 ) {
     debug(
@@ -711,14 +677,15 @@ private fun Logger.debug(
 }
 
 private fun Logger.debug(
-    presentation: RequestObjectRetrieved,
+    presentation: RequestObjectRetrieved<PresentationType.ISO.OverDCApi, WalletResponse.ISO>,
     walletResponse: AuthorisationResponse.ISO.OverDCApi,
 ) {
     debug(
         "TransactionId({}):: Wallet posted response. \nEncrypted response: '{}', \nDecryption Key: '{}'",
         presentation.id.value,
         walletResponse.response.encryptedResponse,
-        presentation.ephemeralResponseEncryptionKeyOrNull?.toJSONString(),
+        presentation.presentationType.responseMode.ephemeralResponseEncryptionKey
+            .toJSONString(),
     )
 }
 
