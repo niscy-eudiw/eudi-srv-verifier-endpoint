@@ -46,6 +46,7 @@ import eu.europa.ec.eudi.verifier.endpoint.adapter.out.mso.DocumentValidator
 import eu.europa.ec.eudi.verifier.endpoint.adapter.out.mso.IssuerSignedItemsShouldBe
 import eu.europa.ec.eudi.verifier.endpoint.adapter.out.mso.ValidityInfoShouldBe
 import eu.europa.ec.eudi.verifier.endpoint.adapter.out.mso.dcapi.CreateDCApiRequestWaltID
+import eu.europa.ec.eudi.verifier.endpoint.adapter.out.mso.dcapi.DecryptDeviceResponseBouncyCastle
 import eu.europa.ec.eudi.verifier.endpoint.adapter.out.persistence.PresentationInMemoryRepo
 import eu.europa.ec.eudi.verifier.endpoint.adapter.out.presentation.ValidateSdJwtVcOrMsoMdocVerifiablePresentation
 import eu.europa.ec.eudi.verifier.endpoint.adapter.out.qrcode.GenerateQrCodeFromData
@@ -167,6 +168,7 @@ internal class AppBeans :
         registerBean {
             CreateDCApiRequestWaltID(bean<VerifierConfig>().verifierId)
         }
+        registerBean { DecryptDeviceResponseBouncyCastle }
 
         //
         // Use cases
@@ -208,7 +210,27 @@ internal class AppBeans :
         }
 
         registerBean { GenerateResponseCode.Random }
-        registerBean { PostWalletResponseLive(bean(), bean(), bean(), bean(), bean(), bean(), bean(), bean(), bean(), bean()) }
+        registerBean {
+            PostWalletResponseLive(
+                loadPresentationById = bean(),
+                loadPresentationByRequestId = bean(),
+                storePresentation = bean(),
+                verifyEncryptedResponse = bean(),
+                clock = bean(),
+                verifierConfig = bean(),
+                generateResponseCode = bean(),
+                createQueryWalletResponseRedirectUri = bean(),
+                publishPresentationEvent = bean(),
+                validateVerifiablePresentation = bean(),
+                decryptDeviceResponse = bean(),
+                deviceResponseValidatorFactory = { userProvided ->
+                    val appDefault = bean<DeviceResponseValidator>()
+                    userProvided?.let {
+                        deviceResponseValidator(IsChainTrustedForContextF.usingTrustAnchors(it))
+                    } ?: appDefault
+                },
+            )
+        }
         registerBean { GenerateEphemeralEncryptionKeyPairNimbus(bean<VerifierConfig>().clientMetaData.responseEncryptionOption) }
         registerBean { GetWalletResponseLive(bean(), bean(), bean()) }
         registerBean { GetPresentationEventsLive(bean(), bean()) }

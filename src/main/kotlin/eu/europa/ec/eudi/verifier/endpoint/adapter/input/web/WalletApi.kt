@@ -304,12 +304,20 @@ class WalletApi(
                         put("description", "SD-JWT VC must use Token Status List as revocation mechanism")
                     }
 
-                    is WalletResponseValidationError.UnexpectedPresentationType -> {
-                        put("error", "UnexpectedPresentationType")
-                        val description =
-                            "Expected PresentationType of type ${expected.qualifiedName}, " +
-                                "but found ${actual.qualifiedName} instead"
-                        put("description", description)
+                    is WalletResponseValidationError.DeviceResponseCannotBeDecrypted -> {
+                        put("error", "DeviceResponseCannotBeDecrypted")
+                        put("description", "DeviceResponse cannot be decrypted")
+                        cause.message?.let {
+                            put("cause", it)
+                        }
+                    }
+
+                    is WalletResponseValidationError.InvalidDeviceResponse -> {
+                        put("error", "InvalidDeviceResponse")
+                        put("description", message)
+                        cause?.message?.let {
+                            put("cause", it)
+                        }
                     }
                 }
             }

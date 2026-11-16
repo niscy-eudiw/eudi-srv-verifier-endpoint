@@ -15,6 +15,8 @@
  */
 package eu.europa.ec.eudi.verifier.endpoint.port.input
 
+import eu.europa.ec.eudi.verifier.endpoint.adapter.out.mso.base64UrlNoPadding
+import eu.europa.ec.eudi.verifier.endpoint.adapter.out.mso.cbor
 import eu.europa.ec.eudi.verifier.endpoint.domain.*
 import eu.europa.ec.eudi.verifier.endpoint.port.input.QueryResponse.*
 import eu.europa.ec.eudi.verifier.endpoint.port.out.persistence.LoadPresentationById
@@ -22,6 +24,7 @@ import eu.europa.ec.eudi.verifier.endpoint.port.out.persistence.PresentationEven
 import eu.europa.ec.eudi.verifier.endpoint.port.out.persistence.PublishPresentationEvent
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToByteArray
 import kotlinx.serialization.json.*
 
 /**
@@ -31,6 +34,7 @@ import kotlinx.serialization.json.*
 @SerialName("wallet_response")
 data class WalletResponseTO(
     @SerialName(OpenId4VPSpec.VP_TOKEN) val vpToken: JsonObject? = null,
+    @SerialName("device_response") val deviceResponse: String? = null,
     @SerialName(RFC6749.ERROR) val error: String? = null,
     @SerialName(RFC6749.ERROR_DESCRIPTION) val errorDescription: String? = null,
 )
@@ -64,6 +68,15 @@ internal fun WalletResponse.toTO(): WalletResponseTO {
             WalletResponseTO(
                 error = value,
                 errorDescription = description,
+            )
+        }
+
+        is WalletResponse.ISO -> {
+            WalletResponseTO(
+                deviceResponse =
+                    base64UrlNoPadding.encode(
+                        cbor.encodeToByteArray(deviceResponse),
+                    ),
             )
         }
     }

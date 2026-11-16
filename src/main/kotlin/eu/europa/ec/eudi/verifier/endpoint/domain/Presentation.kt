@@ -24,6 +24,7 @@ import com.nimbusds.jose.crypto.ECDSAVerifier
 import com.nimbusds.jose.util.X509CertUtils
 import com.nimbusds.jwt.SignedJWT
 import eu.europa.ec.eudi.verifier.endpoint.domain.mso.DocumentRequest
+import id.walt.mdoc.dataretrieval.DeviceResponse
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
 import java.security.cert.X509Certificate
@@ -125,6 +126,10 @@ sealed interface WalletResponse {
             val description: String?,
         ) : OpenId4VP
     }
+
+    data class ISO(
+        val deviceResponse: DeviceResponse,
+    ) : WalletResponse
 }
 
 @JvmInline
@@ -315,13 +320,14 @@ sealed interface Presentation {
                 }
 
                 is PresentationType.ISO -> {
-                    // TODO
+                    require(walletResponse is WalletResponse.ISO) {
+                        "An ISO presentation requires an ISO Wallet Response"
+                    }
                 }
             }
         }
 
         companion object {
-            context(_: Raise<String>)
             fun submitted(
                 requestObjectRetrieved: RequestObjectRetrieved,
                 at: Instant,
@@ -397,12 +403,16 @@ fun Presentation.Requested.timedOut(clock: Clock): Presentation.TimedOut = Prese
 context(_: Raise<String>)
 fun Presentation.RequestObjectRetrieved.timedOut(clock: Clock): Presentation.TimedOut = Presentation.TimedOut.timeOut(this, clock.now())
 
-context(_: Raise<String>)
 fun Presentation.RequestObjectRetrieved.submit(
     clock: Clock,
-    walletResponse: WalletResponse,
+    walletResponse: WalletResponse.OpenId4VP,
     responseCode: ResponseCode?,
 ): Presentation.Submitted = Presentation.Submitted.submitted(this, clock.now(), walletResponse, responseCode)
+
+fun Presentation.RequestObjectRetrieved.submit(
+    clock: Clock,
+    walletResponse: WalletResponse.ISO,
+): Presentation.Submitted = Presentation.Submitted.submitted(this, clock.now(), walletResponse, null)
 
 val Presentation.transactionDataOrNull: NonEmptyList<TransactionData>?
     get() =

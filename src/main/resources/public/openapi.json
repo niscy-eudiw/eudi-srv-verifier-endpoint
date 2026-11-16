@@ -432,7 +432,70 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DcApiWalletResponseError"
+                  "$ref": "#/components/schemas/WalletResponseError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/ui/presentations/{transactionId}/iso/dc-api": {
+      "post": {
+        "tags": [
+          "verifier api"
+        ],
+        "description": "Submits a DC API Wallet Response for an ISO Transaction.",
+        "operationId": "postISODCApiWalletResponse",
+        "parameters": [
+          {
+            "name": "transactionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/TransactionId"
+            },
+            "allowEmptyValue": false,
+            "description": "The unique identifier of the Transaction."
+          }
+        ],
+        "requestBody": {
+          "description": "The Wallet's response to the ISO DeviceRequest",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "nullable": false,
+                "properties": {
+                  "Response": {
+                    "description": "The encrypted response data provided by the Wallet",
+                    "type": "string",
+                    "nullable": false,
+                    "format": "base64url"
+                  }
+                },
+                "required": [
+                  "Response"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Ok"
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WalletResponseError"
                 }
               }
             }
@@ -1488,7 +1551,7 @@
         ],
         "additionalProperties": false
       },
-      "DcApiWalletResponseErrorCode": {
+      "WalletResponseErrorCode": {
         "type": "string",
         "nullable": false,
         "enum": [
@@ -1502,10 +1565,11 @@
           "HAIPValidationError.DeviceResponseContainsMoreThanOneMDoc",
           "HAIPValidationError.UnsupportedMsoRevocationMechanism",
           "HAIPValidationError.SdJwtVcMustUseTokenStatusList",
-          "UnexpectedPresentationType"
+          "DeviceResponseCannotBeDecrypted",
+          "InvalidDeviceResponse"
         ]
       },
-      "DcApiWalletResponseError": {
+      "WalletResponseError": {
         "type": "object",
         "nullable": false,
         "properties": {
@@ -1515,7 +1579,7 @@
                 "description": "The validation error that occurred while processing the Wallet's response."
               },
               {
-                "$ref": "#/components/schemas/DcApiWalletResponseErrorCode"
+                "$ref": "#/components/schemas/WalletResponseErrorCode"
               }
             ]
           },
@@ -1612,6 +1676,22 @@
         ],
         "additionalProperties": false
       },
+      "DeviceResponseWalletResponse": {
+        "type": "object",
+        "nullable": false,
+        "properties": {
+          "device_response": {
+            "description": "The DeviceResponse provided by the Wallet to an ISO Presentation Request.",
+            "type": "object",
+            "nullable": false,
+            "format": "base64url"
+          }
+        },
+        "required": [
+          "device_response"
+        ],
+        "additionalProperties": false
+      },
       "WalletResponse": {
         "oneOf": [
           {
@@ -1619,6 +1699,9 @@
           },
           {
             "$ref": "#/components/schemas/ErrorWalletResponse"
+          },
+          {
+            "$ref": "#/components/schemas/DeviceResponseWalletResponse"
           }
         ]
       },

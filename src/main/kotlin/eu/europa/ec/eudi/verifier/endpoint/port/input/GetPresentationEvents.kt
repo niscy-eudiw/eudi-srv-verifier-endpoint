@@ -209,8 +209,12 @@ private fun WalletResponseValidationError.asText(): String =
             "SD-JWT VC must use Token Status List as revocation mechanism"
         }
 
-        is WalletResponseValidationError.UnexpectedPresentationType -> {
-            "Unexpected PresentationType"
+        is WalletResponseValidationError.DeviceResponseCannotBeDecrypted -> {
+            "DeviceResponse cannot be decrypted: '${cause.message}'"
+        }
+
+        is WalletResponseValidationError.InvalidDeviceResponse -> {
+            "DeviceResponse is not valid: ${message}${cause?.message?.let { ", $it" }}"
         }
     }
 

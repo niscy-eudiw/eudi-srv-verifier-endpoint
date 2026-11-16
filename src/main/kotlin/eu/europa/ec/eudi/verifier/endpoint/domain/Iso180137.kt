@@ -47,6 +47,12 @@ object Iso180137 {
     const val ENCRYPTION_PARAMETERS_RECIPIENT_PUBLIC_KEY_CURVE: String = "P-256"
 
     //
+    // DC Api Response
+    //
+
+    const val RESPONSE: String = "Response"
+
+    //
     // Encrypted Response
     //
 

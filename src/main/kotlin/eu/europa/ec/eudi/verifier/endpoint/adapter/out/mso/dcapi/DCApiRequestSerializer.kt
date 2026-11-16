@@ -21,14 +21,9 @@ import eu.europa.ec.eudi.verifier.endpoint.adapter.out.mso.cbor
 import eu.europa.ec.eudi.verifier.endpoint.adapter.out.mso.toListElement
 import eu.europa.ec.eudi.verifier.endpoint.domain.Iso180137
 import eu.europa.ec.eudi.verifier.endpoint.domain.mso.dcapi.DCApiRequest
-import id.walt.mdoc.dataelement.DataElement
 import id.walt.mdoc.dataretrieval.DeviceRequest
-import kotlinx.serialization.KSerializer
-import kotlinx.serialization.Required
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
+import kotlinx.serialization.*
 import kotlinx.serialization.descriptors.SerialDescriptor
-import kotlinx.serialization.encodeToByteArray
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 
@@ -65,12 +60,12 @@ private data class DCApiRequestDelegate(
 
 private fun DCApiRequest(value: DCApiRequestDelegate): DCApiRequest {
     val deviceRequest =
-        DeviceRequest.fromCBOR(
+        cbor.decodeFromByteArray<DeviceRequest>(
             base64UrlNoPadding.decode(value.deviceRequest),
         )
     val encryptionInfo =
         EncryptionInfo(
-            DataElement.fromCBOR(
+            cbor.decodeFromByteArray(
                 base64UrlNoPadding.decode(value.encryptionInfo),
             ),
         )

@@ -18,6 +18,7 @@ package eu.europa.ec.eudi.verifier.endpoint.adapter.out.mso
 import arrow.core.NonEmptyList
 import arrow.core.mapOrAccumulate
 import arrow.core.raise.Raise
+import arrow.core.raise.catch
 import arrow.core.raise.context.bind
 import arrow.core.raise.context.ensure
 import arrow.core.raise.context.raise
@@ -26,6 +27,7 @@ import eu.europa.ec.eudi.verifier.endpoint.domain.TransactionId
 import id.walt.mdoc.dataretrieval.DeviceResponse
 import id.walt.mdoc.dataretrieval.DeviceResponseStatus
 import id.walt.mdoc.doc.MDoc
+import kotlinx.serialization.decodeFromByteArray
 
 /**
  * An invalid document inside a device response
@@ -79,6 +81,17 @@ class DeviceResponseValidator(
 
     context(_: Raise<DeviceResponseError>)
     suspend fun ensureValid(
+        serialized: ByteArray,
+        transactionId: TransactionId? = null,
+        handoverInfo: HandoverInfo? = null,
+    ): DeviceResponse {
+        val deviceResponse = ensureCanBeDecoded(serialized)
+        ensureValid(deviceResponse, transactionId, handoverInfo)
+        return deviceResponse
+    }
+
+    context(_: Raise<DeviceResponseError>)
+    suspend fun ensureValid(
         deviceResponse: DeviceResponse,
         transactionId: TransactionId?,
         handoverInfo: HandoverInfo?,
@@ -93,6 +106,14 @@ private fun ensureCanBeDecoded(vp: String): DeviceResponse =
     try {
         DeviceResponse.decodeFromCborBase64Url(vp)
     } catch (_: Throwable) {
+        raise(DeviceResponseError.CannotBeDecoded)
+    }
+
+context(_: Raise<DeviceResponseError.CannotBeDecoded>)
+private fun ensureCanBeDecoded(serialized: ByteArray): DeviceResponse =
+    catch({
+        cbor.decodeFromByteArray<DeviceResponse>(serialized)
+    }) {
         raise(DeviceResponseError.CannotBeDecoded)
     }
 

@@ -15,10 +15,12 @@
  */
 package eu.europa.ec.eudi.verifier.endpoint.adapter.input.web
 
+import arrow.core.raise.catch
 import arrow.core.raise.effect
 import arrow.core.raise.fold
 import eu.europa.ec.eudi.verifier.endpoint.adapter.input.web.WalletApi.Companion.toJson
 import eu.europa.ec.eudi.verifier.endpoint.domain.*
+import eu.europa.ec.eudi.verifier.endpoint.domain.mso.dcapi.DCApiResponse
 import eu.europa.ec.eudi.verifier.endpoint.port.input.*
 import kotlinx.serialization.Required
 import kotlinx.serialization.SerialName
@@ -74,6 +76,11 @@ internal class VerifierApi(
                 INIT_ISO_TRANSACTION_DC_API_PATH,
                 contentType(APPLICATION_JSON) and accept(APPLICATION_JSON),
                 ::handleInitISODCApiTransaction,
+            )
+            POST(
+                ISO_DC_API_WALLET_RESPONSE_PATH,
+                contentType(APPLICATION_JSON) and accept(ALL),
+                ::handlePostIsoDCApiWalletResponse,
             )
         }
 
@@ -200,6 +207,28 @@ internal class VerifierApi(
         )
     }
 
+    private suspend fun handlePostIsoDCApiWalletResponse(request: ServerRequest): ServerResponse {
+        val transactionId = request.transactionId()
+        val response =
+            catch({
+                request.awaitBody<DCApiResponse>()
+            }) {
+                logger.warn("While handling DCApiResponse", it)
+                return badRequest().buildAndAwait()
+            }
+
+        val walletResponse = AuthorisationResponse.ISO.OverDCApi(response)
+        return effect {
+            postWalletResponse(PresentationLookup.ByTransactionId(transactionId), walletResponse)
+        }.fold(
+            transform = { ok().buildAndAwait() },
+            recover = { error ->
+                logger.warn("PostIsoDCApiWalletResponse failed for tx ${transactionId.value}: $error")
+                badRequest().json().bodyValueAndAwait(error.toJson())
+            },
+        )
+    }
+
     private fun MultiValueMap<String, String>.openId4VPOverDCApiWalletResponse(): AuthorisationResponse.OpenId4VP.OverDCApi {
         fun dcApi(): AuthorisationResponse.OpenId4VP.OverDCApi.DCApi {
             fun String.toJsonObject(): JsonObject = Json.decodeFromString<JsonObject>(this)
@@ -296,6 +325,7 @@ internal class VerifierApi(
         const val INIT_TRANSACTION_PATH_DC_API = "/ui/presentations/dc-api"
         const val INIT_ISO_TRANSACTION_DC_API_PATH = "/ui/presentations/iso/dc-api"
         const val DC_API_WALLET_RESPONSE_PATH = "/ui/presentations/{transactionId}/dc-api"
+        const val ISO_DC_API_WALLET_RESPONSE_PATH = "/ui/presentations/{transactionId}/iso/dc-api"
         const val WALLET_RESPONSE_PATH = "/ui/presentations/{transactionId}"
         const val EVENTS_RESPONSE_PATH = "/ui/presentations/{transactionId}/events"
         const val DC_API_RETRIEVE_REQUEST_PATH = "/ui/presentations/dc-api/{transactionId}/request"
