@@ -397,7 +397,7 @@ class PostWalletResponseLive(
         }.recover {
             logFailure(presentation, null, it)
             raise(it)
-        }
+        }.bind()
     }
 
     context(_: Raise<WalletResponseValidationError>)

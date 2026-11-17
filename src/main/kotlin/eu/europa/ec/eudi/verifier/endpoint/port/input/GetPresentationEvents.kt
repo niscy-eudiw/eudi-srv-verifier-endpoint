@@ -154,7 +154,7 @@ private fun JsonObjectBuilder.putEventNameAndActor(e: PresentationEvent) {
             is PresentationEvent.WalletResponsePosted -> "Wallet response posted" to Actor.Wallet
             is PresentationEvent.WalletFailedToPostResponse -> "Wallet failed to post response" to Actor.Wallet
             is PresentationEvent.VerifierGotWalletResponse -> "Verifier got wallet response" to Actor.Verifier
-            is PresentationEvent.VerifierFailedToGetWalletResponse -> "Verifier failed to get wallet" to Actor.Verifier
+            is PresentationEvent.VerifierFailedToGetWalletResponse -> "Verifier failed to get wallet response" to Actor.Verifier
             is PresentationEvent.PresentationExpired -> "Presentation expired" to Actor.VerifierEndPoint
             is PresentationEvent.AttestationStatusCheckSuccessful -> "Attestation status check succeeded" to Actor.VerifierEndPoint
             is PresentationEvent.AttestationStatusCheckFailed -> "Attestation status check failed" to Actor.VerifierEndPoint
